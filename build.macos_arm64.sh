@@ -48,7 +48,7 @@ pushd $SOURCE_DIR/webrtc/src
     videocapture_objc \
     mac_framework_objc
 
-  python2 tools_webrtc/libs/generate_licenses.py --target :webrtc $BUILD_DIR/webrtc/ $BUILD_DIR/webrtc/
+  python2 tools_webrtc/libs/generate_licenses.py --target //sdk:mac_framework_objc $BUILD_DIR/webrtc/ $BUILD_DIR/webrtc/
 popd
 
 pushd $BUILD_DIR/webrtc/obj
