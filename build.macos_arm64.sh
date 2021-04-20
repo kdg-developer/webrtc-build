@@ -13,7 +13,7 @@ set -ex
 
 # ======= ここまでは全ての build.*.sh で共通（PACKAGE_NAME だけ変える）
 
-TARGET_BUILD_CONFIGS="debug release"
+TARGET_BUILD_CONFIGS="debug"
 
 ./scripts/get_depot_tools.sh $SOURCE_DIR
 export PATH="$SOURCE_DIR/depot_tools:$PATH"
