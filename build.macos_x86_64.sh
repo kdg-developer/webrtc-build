@@ -58,6 +58,7 @@ pushd $SOURCE_DIR/webrtc/src
       is_component_build=false
       use_rtti=true
       libcxx_abi_unstable=false
+      dcheck_always_on=true
     "
     ninja -C $_libs_dir
     ninja -C $_libs_dir \
