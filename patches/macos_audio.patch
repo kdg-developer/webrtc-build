@@ -1,0 +1,204 @@
+diff --git a/sdk/BUILD.gn b/sdk/BUILD.gn
+index e01ab97a6e..0b0c587f38 100644
+--- a/sdk/BUILD.gn
++++ b/sdk/BUILD.gn
+@@ -855,6 +872,7 @@ if (is_ios || is_mac) {
+         "..:no_global_constructors",
+       ]
+       sources = [
++        "objc/api/peerconnection/RTCAudioDeviceModule.h",
+         "objc/api/peerconnection/RTCAudioSource+Private.h",
+         "objc/api/peerconnection/RTCAudioSource.h",
+         "objc/api/peerconnection/RTCAudioSource.mm",
+
+diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h b/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h
+new file mode 100644
+index 0000000000..b074c95ad1
+--- /dev/null
++++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h
+@@ -0,0 +1,21 @@
++/*
++ *  Copyright 2019 pixiv Inc. All Rights Reserved.
++ *
++ *  Use of this source code is governed by a license that can be
++ *  found in the LICENSE.pixiv file in the root of the source tree.
++ */
++
++#import "RTCAudioDeviceModule.h"
++
++#include "sdk/objc/native/src/audio/audio_device_module_ios.h"
++
++NS_ASSUME_NONNULL_BEGIN
++
++@interface RTCAudioDeviceModule ()
++
++@property(nonatomic, readonly) rtc::scoped_refptr<webrtc::ios_adm::AudioDeviceModuleIOS>
++    nativeModule;
++
++@end
++
++NS_ASSUME_NONNULL_END
+
+diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
+new file mode 100644
+index 0000000000..9c47f8bdb4
+--- /dev/null
++++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
+@@ -0,0 +1,24 @@
++/*
++ *  Copyright 2019 pixiv Inc. All Rights Reserved.
++ *
++ *  Use of this source code is governed by a license that can be
++ *  found in the LICENSE.pixiv file in the root of the source tree.
++ */
++
++#import <CoreMedia/CoreMedia.h>
++#import <Foundation/Foundation.h>
++
++#import "RTCMacros.h"
++
++NS_ASSUME_NONNULL_BEGIN
++
++RTC_OBJC_EXPORT
++
++@interface RTCAudioDeviceModule : NSObject
++
++- (void)deliverRecordedData:(CMSampleBufferRef)sampleBuffer;
++@property(nonatomic, assign) OSType audioUnitSubType;
++
++@end
++
++NS_ASSUME_NONNULL_END
+
+diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
+new file mode 100644
+index 0000000000..f3275e0624
+--- /dev/null
++++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
+@@ -0,0 +1,41 @@
++/*
++ *  Copyright 2019 pixiv Inc. All Rights Reserved.
++ *
++ *  Use of this source code is governed by a license that can be
++ *  found in the LICENSE.pixiv file in the root of the source tree.
++ */
++
++#include <AudioUnit/AudioUnit.h>
++
++#import "RTCAudioDeviceModule+Private.h"
++#include "rtc_base/ref_counted_object.h"
++
++@implementation RTCAudioDeviceModule {
++  rtc::scoped_refptr<webrtc::ios_adm::AudioDeviceModuleIOS> _nativeModule;
++}
++
++- (instancetype)init {
++  self = [super init];
++  _nativeModule = new rtc::RefCountedObject<webrtc::ios_adm::AudioDeviceModuleIOS>();
++  return self;
++}
++
++- (void)deliverRecordedData:(CMSampleBufferRef)sampleBuffer {
++  _nativeModule->OnDeliverRecordedExternalData(sampleBuffer);
++}
++
++- (void)setAudioUnitSubType:(OSType)audioUnitSubType {
++  _nativeModule->SetAudioUnitSubType(audioUnitSubType);
++}
++
++- (OSType)audioUnitSubType {
++  return _nativeModule->GetAudioUnitSubType();
++}
++
++#pragma mark - Private
++
++- (rtc::scoped_refptr<webrtc::ios_adm::AudioDeviceModuleIOS>)nativeModule {
++  return _nativeModule;
++}
++
++@end
+
+diff --git a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h
+index 2b0489885f..7e5f7ca218 100644
+--- a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h
++++ b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h
+@@ -11,6 +11,7 @@
+ #import <Foundation/Foundation.h>
+
+ #import "RTCMacros.h"
++#import "RTCAudioDeviceModule.h"
+
+ NS_ASSUME_NONNULL_BEGIN
+
+@@ -41,6 +42,10 @@ RTC_OBJC_EXPORT
+     initWithEncoderFactory:(nullable id<RTC_OBJC_TYPE(RTCVideoEncoderFactory)>)encoderFactory
+             decoderFactory:(nullable id<RTC_OBJC_TYPE(RTCVideoDecoderFactory)>)decoderFactory;
+
++- (instancetype)initWithEncoderFactory:(nullable id<RTCVideoEncoderFactory>)encoderFactory
++                        decoderFactory:(nullable id<RTCVideoDecoderFactory>)decoderFactory
++                     audioDeviceModule:(RTCAudioDeviceModule *)audioDeviceModule;
++
+ /** Initialize an RTCAudioSource with constraints. */
+ - (RTC_OBJC_TYPE(RTCAudioSource) *)audioSourceWithConstraints:
+     (nullable RTC_OBJC_TYPE(RTCMediaConstraints) *)constraints;
+
+diff --git a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm
+index 2f324f7289..2f88b9a0b1 100644
+--- a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm
++++ b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm
+@@ -14,6 +14,7 @@
+ #import "RTCPeerConnectionFactory+Private.h"
+ #import "RTCPeerConnectionFactoryOptions+Private.h"
+
++#import "RTCAudioDeviceModule+Private.h"
+ #import "RTCAudioSource+Private.h"
+ #import "RTCAudioTrack+Private.h"
+ #import "RTCMediaConstraints+Private.h"
+@@ -113,6 +114,30 @@ - (instancetype)init {
+                            audioProcessingModule:nullptr];
+ #endif
+ }
++
++- (instancetype)initWithEncoderFactory:(nullable id<RTCVideoEncoderFactory>)encoderFactory
++                        decoderFactory:(nullable id<RTCVideoDecoderFactory>)decoderFactory
++                     audioDeviceModule:(RTCAudioDeviceModule *)audioDeviceModule {
++#ifdef HAVE_NO_MEDIA
++  return [self initWithNoMedia];
++#else
++  std::unique_ptr<webrtc::VideoEncoderFactory> native_encoder_factory;
++  std::unique_ptr<webrtc::VideoDecoderFactory> native_decoder_factory;
++  if (encoderFactory) {
++    native_encoder_factory = webrtc::ObjCToNativeVideoEncoderFactory(encoderFactory);
++  }
++  if (decoderFactory) {
++    native_decoder_factory = webrtc::ObjCToNativeVideoDecoderFactory(decoderFactory);
++  }
++  return [self initWithNativeAudioEncoderFactory:webrtc::CreateBuiltinAudioEncoderFactory()
++                       nativeAudioDecoderFactory:webrtc::CreateBuiltinAudioDecoderFactory()
++                       nativeVideoEncoderFactory:std::move(native_encoder_factory)
++                       nativeVideoDecoderFactory:std::move(native_decoder_factory)
++                               audioDeviceModule:audioDeviceModule.nativeModule
++                           audioProcessingModule:nullptr];
++#endif
++}
++
+ - (instancetype)initNative {
+   if (self = [super init]) {
+     _networkThread = rtc::Thread::CreateWithSocketServer();
+
+diff --git a/sdk/objc/native/src/audio/audio_device_ios.h b/sdk/objc/native/src/audio/audio_device_ios.h
+index a57e719eab..78dc3b0f23 100644
+--- a/sdk/objc/native/src/audio/audio_device_ios.h
++++ b/sdk/objc/native/src/audio/audio_device_ios.h
+@@ -88,9 +88,10 @@ class AudioDeviceIOS : public AudioDeviceGeneric,
+
+   // Native audio parameters stored during construction.
+   // These methods are unique for the iOS implementation.
++  #if defined(WEBRTC_IOS)
+   int GetPlayoutAudioParameters(AudioParameters* params) const override;
+   int GetRecordAudioParameters(AudioParameters* params) const override;
+-
++  #endif  // WEBRTC_IOS
+   // These methods are currently not fully implemented on iOS:
+
+   // See audio_device_not_implemented.cc for trivial implementations.
