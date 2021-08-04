@@ -1,0 +1,58 @@
+diff --git a/call/rtp_transport_controller_send.cc b/call/rtp_transport_controller_send.cc
+index d743a0bf43..2b6a3209bd 100644
+--- a/call/rtp_transport_controller_send.cc
++++ b/call/rtp_transport_controller_send.cc
+@@ -125,7 +125,7 @@ RtpTransportControllerSend::RtpTransportControllerSend(
+       retransmission_rate_limiter_(clock, kRetransmitWindowSizeMs),
+       task_queue_(task_queue_factory->CreateTaskQueue(
+           "rtp_send_controller",
+-          TaskQueueFactory::Priority::NORMAL)) {
++          TaskQueueFactory::Priority::HIGH)) {
+   ParseFieldTrial({&relay_bandwidth_cap_},
+                   trials->Lookup("WebRTC-Bwe-NetworkRouteConstraints"));
+   initial_config_.constraints = ConvertConstraints(bitrate_config, clock_);
+diff --git a/video/video_stream_encoder.cc b/video/video_stream_encoder.cc
+index 191918a591..39991e0d59 100644
+--- a/video/video_stream_encoder.cc
++++ b/video/video_stream_encoder.cc
+@@ -659,7 +659,7 @@ VideoStreamEncoder::VideoStreamEncoder(
+           !field_trial::IsEnabled("WebRTC-QpParsingKillSwitch")),
+       encoder_queue_(task_queue_factory->CreateTaskQueue(
+           "EncoderQueue",
+-          TaskQueueFactory::Priority::NORMAL)) {
++          TaskQueueFactory::Priority::HIGH)) {
+   RTC_DCHECK(main_queue_);
+   RTC_DCHECK(encoder_stats_observer);
+   RTC_DCHECK_GE(number_of_cores, 1);
+diff --git a/modules/pacing/task_queue_paced_sender.cc b/modules/pacing/task_queue_paced_sender.cc
+index 709718ff16..d8f9b4c17c 100644
+--- a/modules/pacing/task_queue_paced_sender.cc
++++ b/modules/pacing/task_queue_paced_sender.cc
+@@ -50,7 +50,7 @@ TaskQueuePacedSender::TaskQueuePacedSender(
+       is_shutdown_(false),
+       task_queue_(task_queue_factory->CreateTaskQueue(
+           "TaskQueuePacedSender",
+-          TaskQueueFactory::Priority::NORMAL)) {}
++          TaskQueueFactory::Priority::HIGH)) {}
+
+ TaskQueuePacedSender::~TaskQueuePacedSender() {
+   // Post an immediate task to mark the queue as shutting down.
+diff --git a/sdk/objc/helpers/RTCDispatcher.m b/sdk/objc/helpers/RTCDispatcher.m
+index 4df19bc297..408c1e0258 100644
+--- a/sdk/objc/helpers/RTCDispatcher.m
++++ b/sdk/objc/helpers/RTCDispatcher.m
+@@ -21,12 +21,12 @@ + (void)initialize {
+   dispatch_once(&onceToken, ^{
+     kAudioSessionQueue = dispatch_queue_create(
+         "org.webrtc.RTCDispatcherAudioSession",
+-        DISPATCH_QUEUE_SERIAL);
++        DISPATCH_QUEUE_CONCURRENT);
+     kCaptureSessionQueue = dispatch_queue_create(
+         "org.webrtc.RTCDispatcherCaptureSession",
+-        DISPATCH_QUEUE_SERIAL);
++        DISPATCH_QUEUE_CONCURRENT);
+     kNetworkMonitorQueue =
+-        dispatch_queue_create("org.webrtc.RTCDispatcherNetworkMonitor", DISPATCH_QUEUE_SERIAL);
++        dispatch_queue_create("org.webrtc.RTCDispatcherNetworkMonitor", DISPATCH_QUEUE_CONCURRENT);
+   });
+ }
