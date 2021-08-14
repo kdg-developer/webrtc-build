@@ -33,6 +33,7 @@ pushd $SOURCE_DIR/webrtc/src
   patch -p1 < $SCRIPT_DIR/patches/macos_simulcast.patch
   patch -p1 < $SCRIPT_DIR/patches/ios_manual_audio_input.patch
   patch -p1 < $SCRIPT_DIR/patches/ios_simulcast.patch
+  patch -p1 < $SCRIPT_DIR/patches/ios_thread_priority.patch
 popd
 
 for build_config in $TARGET_BUILD_CONFIGS; do
@@ -53,6 +54,7 @@ pushd $SOURCE_DIR/webrtc/src
       rtc_include_tests=false \
       rtc_build_examples=false \
       rtc_use_h264=false \
+      rtc_enable_protobuf=false \
       use_rtti=true \
       libcxx_abi_unstable=false \
       enable_dsyms=$_is_debug \
@@ -104,6 +106,7 @@ pushd $SOURCE_DIR/webrtc/src
         rtc_include_tests=false
         rtc_build_examples=false
         rtc_use_h264=false
+        rtc_enable_protobuf=false
         use_rtti=true
         libcxx_abi_unstable=false
       "
