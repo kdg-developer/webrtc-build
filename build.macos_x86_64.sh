@@ -57,6 +57,7 @@ pushd $SOURCE_DIR/webrtc/src
       rtc_include_tests=false
       rtc_build_examples=false
       rtc_use_h264=false
+      rtc_enable_protobuf=false
       rtc_libvpx_build_vp9=true
       rtc_enable_symbol_export=true
       is_component_build=false
