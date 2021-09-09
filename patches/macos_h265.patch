@@ -1642,3 +1642,13 @@ index 0000000000..9497b6ecaf
 +
 +@end
 \ No newline at end of file
+diff --git a/tools_webrtc/ios/build_ios_libs.py b/tools_webrtc/ios/build_ios_libs.py
+index 3be0eb1975..c07a153fb8 100755
+--- a/tools_webrtc/ios/build_ios_libs.py
++++ b/tools_webrtc/ios/build_ios_libs.py
+@@ -33,3 +33,3 @@ SDK_FRAMEWORK_NAME = 'WebRTC.framework'
+ DEFAULT_ARCHS = ENABLED_ARCHS = ['arm64', 'arm', 'x64', 'x86']
+-IOS_DEPLOYMENT_TARGET = '10.0'
++IOS_DEPLOYMENT_TARGET = '11.0'
+ LIBVPX_BUILD_VP9 = False
+ 

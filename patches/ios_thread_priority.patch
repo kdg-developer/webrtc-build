@@ -2,48 +2,34 @@ diff --git a/call/rtp_transport_controller_send.cc b/call/rtp_transport_controll
 index d743a0bf43..2b6a3209bd 100644
 --- a/call/rtp_transport_controller_send.cc
 +++ b/call/rtp_transport_controller_send.cc
-@@ -125,7 +125,7 @@ RtpTransportControllerSend::RtpTransportControllerSend(
-       retransmission_rate_limiter_(clock, kRetransmitWindowSizeMs),
-       task_queue_(task_queue_factory->CreateTaskQueue(
+@@ -127,3 +127,3 @@ RtpTransportControllerSend::RtpTransportControllerSend(
            "rtp_send_controller",
 -          TaskQueueFactory::Priority::NORMAL)) {
 +          TaskQueueFactory::Priority::HIGH)) {
    ParseFieldTrial({&relay_bandwidth_cap_},
-                   trials->Lookup("WebRTC-Bwe-NetworkRouteConstraints"));
-   initial_config_.constraints = ConvertConstraints(bitrate_config, clock_);
 diff --git a/video/video_stream_encoder.cc b/video/video_stream_encoder.cc
 index 191918a591..39991e0d59 100644
 --- a/video/video_stream_encoder.cc
 +++ b/video/video_stream_encoder.cc
-@@ -659,7 +659,7 @@ VideoStreamEncoder::VideoStreamEncoder(
-           !field_trial::IsEnabled("WebRTC-QpParsingKillSwitch")),
-       encoder_queue_(task_queue_factory->CreateTaskQueue(
+@@ -661,3 +661,3 @@ VideoStreamEncoder::VideoStreamEncoder(
            "EncoderQueue",
 -          TaskQueueFactory::Priority::NORMAL)) {
 +          TaskQueueFactory::Priority::HIGH)) {
    RTC_DCHECK(main_queue_);
-   RTC_DCHECK(encoder_stats_observer);
-   RTC_DCHECK_GE(number_of_cores, 1);
 diff --git a/modules/pacing/task_queue_paced_sender.cc b/modules/pacing/task_queue_paced_sender.cc
 index 709718ff16..d8f9b4c17c 100644
 --- a/modules/pacing/task_queue_paced_sender.cc
 +++ b/modules/pacing/task_queue_paced_sender.cc
-@@ -50,7 +50,7 @@ TaskQueuePacedSender::TaskQueuePacedSender(
-       is_shutdown_(false),
-       task_queue_(task_queue_factory->CreateTaskQueue(
+@@ -52,3 +52,3 @@ TaskQueuePacedSender::TaskQueuePacedSender(
            "TaskQueuePacedSender",
 -          TaskQueueFactory::Priority::NORMAL)) {}
 +          TaskQueueFactory::Priority::HIGH)) {}
 
- TaskQueuePacedSender::~TaskQueuePacedSender() {
-   // Post an immediate task to mark the queue as shutting down.
 diff --git a/sdk/objc/helpers/RTCDispatcher.m b/sdk/objc/helpers/RTCDispatcher.m
 index 4df19bc297..408c1e0258 100644
 --- a/sdk/objc/helpers/RTCDispatcher.m
 +++ b/sdk/objc/helpers/RTCDispatcher.m
-@@ -21,12 +21,12 @@ + (void)initialize {
-   dispatch_once(&onceToken, ^{
-     kAudioSessionQueue = dispatch_queue_create(
+@@ -23,8 +23,8 @@ + (void)initialize {
          "org.webrtc.RTCDispatcherAudioSession",
 -        DISPATCH_QUEUE_SERIAL);
 +        DISPATCH_QUEUE_CONCURRENT);
@@ -55,40 +41,29 @@ index 4df19bc297..408c1e0258 100644
 -        dispatch_queue_create("org.webrtc.RTCDispatcherNetworkMonitor", DISPATCH_QUEUE_SERIAL);
 +        dispatch_queue_create("org.webrtc.RTCDispatcherNetworkMonitor", DISPATCH_QUEUE_CONCURRENT);
    });
- }
 diff --git a/video/video_receive_stream.cc b/video/video_receive_stream.cc
 index dbdba388aa..78556f4846 100644
 --- a/video/video_receive_stream.cc
 +++ b/video/video_receive_stream.cc
-@@ -223,7 +223,7 @@ VideoReceiveStream::VideoReceiveStream(
-       max_wait_for_frame_ms_(kMaxWaitForFrameMs),
-       decode_queue_(task_queue_factory_->CreateTaskQueue(
+@@ -225,3 +225,3 @@ VideoReceiveStream::VideoReceiveStream(
            "DecodingQueue",
 -          TaskQueueFactory::Priority::HIGH)) {
 +          TaskQueueFactory::Priority::LOW)) {
    RTC_LOG(LS_INFO) << "VideoReceiveStream: " << config_.ToString();
-
-   RTC_DCHECK(config_.renderer);
 diff --git a/video/video_receive_stream2.cc b/video/video_receive_stream2.cc
 index c9ec9e0123..58cb834e6c 100644
 --- a/video/video_receive_stream2.cc
 +++ b/video/video_receive_stream2.cc
-@@ -258,7 +258,7 @@ VideoReceiveStream2::VideoReceiveStream2(
-       maximum_pre_stream_decoders_("max", kDefaultMaximumPreStreamDecoders),
-       decode_queue_(task_queue_factory_->CreateTaskQueue(
+@@ -260,3 +260,3 @@ VideoReceiveStream2::VideoReceiveStream2(
            "DecodingQueue",
 -          TaskQueueFactory::Priority::HIGH)) {
 +          TaskQueueFactory::Priority::LOW)) {
    RTC_LOG(LS_INFO) << "VideoReceiveStream2: " << config_.ToString();
-
-   RTC_DCHECK(worker_thread_);
 diff --git a/video/video_stream_decoder_impl.cc b/video/video_stream_decoder_impl.cc
 index b6d754e8be..2139ce8c76 100644
 --- a/video/video_stream_decoder_impl.cc
 +++ b/video/video_stream_decoder_impl.cc
-@@ -35,10 +35,10 @@ VideoStreamDecoderImpl::VideoStreamDecoderImpl(
-       frame_buffer_(Clock::GetRealTimeClock(), &timing_, nullptr),
-       bookkeeping_queue_(task_queue_factory->CreateTaskQueue(
+@@ -37,6 +37,6 @@ VideoStreamDecoderImpl::VideoStreamDecoderImpl(
            "video_stream_decoder_bookkeeping_queue",
 -          TaskQueueFactory::Priority::NORMAL)),
 +          TaskQueueFactory::Priority::LOW)),
@@ -97,5 +72,3 @@ index b6d754e8be..2139ce8c76 100644
 -          TaskQueueFactory::Priority::NORMAL)) {
 +          TaskQueueFactory::Priority::LOW)) {
    bookkeeping_queue_.PostTask([this]() {
-     RTC_DCHECK_RUN_ON(&bookkeeping_queue_);
-     StartNextDecode();
