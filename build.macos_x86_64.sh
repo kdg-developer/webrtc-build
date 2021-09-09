@@ -14,7 +14,7 @@ set -ex
 # ======= ここまでは全ての build.*.sh で共通（PACKAGE_NAME だけ変える）
 TARGET_ARCH=x64
 TARGET_BUILD_CONFIGS="debug release"
-MAC_DEPLOYMENT_TARGET=10.11
+MAC_DEPLOYMENT_TARGET=10.13
 
 ./scripts/get_depot_tools.sh $SOURCE_DIR
 export PATH="$SOURCE_DIR/depot_tools:$PATH"
@@ -31,6 +31,8 @@ pushd $SOURCE_DIR/webrtc/src
   patch -p1 < $SCRIPT_DIR/patches/macos_thread_priority.patch
   patch -p1 < $SCRIPT_DIR/patches/macos_use_metal.patch
   patch -p1 < $SCRIPT_DIR/patches/macos_statistics.patch
+  patch -p1 < $SCRIPT_DIR/patches/h265.patch
+  patch -p1 < $SCRIPT_DIR/patches/macos_h265.patch
 popd
 
 pushd $SOURCE_DIR/webrtc/src
