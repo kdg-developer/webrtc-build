@@ -31,6 +31,8 @@ pushd $SOURCE_DIR/webrtc/src
   patch -p1 < $SCRIPT_DIR/patches/macos_thread_priority.patch
   patch -p1 < $SCRIPT_DIR/patches/macos_use_metal.patch
   patch -p1 < $SCRIPT_DIR/patches/macos_statistics.patch
+  patch -p1 < $SCRIPT_DIR/patches/h265.patch
+  patch -p1 < $SCRIPT_DIR/patches/macos_h265.patch
 popd
 
 pushd $SOURCE_DIR/webrtc/src
