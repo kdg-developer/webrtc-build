@@ -58,7 +58,6 @@ pushd $SOURCE_DIR/webrtc/src
       rtc_use_h264=false \
       rtc_enable_protobuf=false \
       use_rtti=true \
-      libcxx_abi_unstable=false \
       enable_dsyms=$_is_debug \
     "
     _branch="M`echo $WEBRTC_VERSION | cut -d'.' -f1`"
@@ -110,7 +109,6 @@ pushd $SOURCE_DIR/webrtc/src
         rtc_use_h264=false
         rtc_enable_protobuf=false
         use_rtti=true
-        libcxx_abi_unstable=false
       "
       ninja -C $BUILD_DIR/webrtc/$build_config/${arch}_libs
       ninja -C $BUILD_DIR/webrtc/$build_config/${arch}_libs \
