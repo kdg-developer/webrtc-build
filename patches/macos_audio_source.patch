@@ -1,0 +1,510 @@
+diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h b/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h
+new file mode 100644
+index 0000000000..ec4b447920
+--- /dev/null
++++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h
+@@ -0,0 +1,23 @@
++/*
++ *  Copyright 2019 pixiv Inc. All Rights Reserved.
++ *
++ *  Use of this source code is governed by a license that can be
++ *  found in the LICENSE.pixiv file in the root of the source tree.
++ */
++
++#import "RTCAudioDeviceModule.h"
++
++#if defined(WEBRTC_IOS)
++#include "sdk/objc/native/src/audio/audio_device_module_ios.h"
++
++NS_ASSUME_NONNULL_BEGIN
++
++@interface RTCAudioDeviceModule ()
++
++@property(nonatomic, readonly) rtc::scoped_refptr<webrtc::ios_adm::AudioDeviceModuleIOS>
++    nativeModule;
++
++@end
++
++NS_ASSUME_NONNULL_END
++#endif
+\ No newline at end of file
+diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
+new file mode 100644
+index 0000000000..49f2c8c8d1
+--- /dev/null
++++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
+@@ -0,0 +1,25 @@
++/*
++ *  Copyright 2019 pixiv Inc. All Rights Reserved.
++ *
++ *  Use of this source code is governed by a license that can be
++ *  found in the LICENSE.pixiv file in the root of the source tree.
++ */
++
++#import <CoreMedia/CoreMedia.h>
++#import <Foundation/Foundation.h>
++
++#import "RTCMacros.h"
++
++NS_ASSUME_NONNULL_BEGIN
++
++RTC_OBJC_EXPORT
++
++NS_CLASS_AVAILABLE_IOS(2_0)
++@interface RTCAudioDeviceModule : NSObject
++
++- (void)deliverRecordedData:(CMSampleBufferRef)sampleBuffer;
++@property(nonatomic, assign) OSType audioUnitSubType;
++
++@end
++
++NS_ASSUME_NONNULL_END
+\ No newline at end of file
+diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
+new file mode 100644
+index 0000000000..4caa26446e
+--- /dev/null
++++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
+@@ -0,0 +1,41 @@
++/*
++ *  Copyright 2019 pixiv Inc. All Rights Reserved.
++ *
++ *  Use of this source code is governed by a license that can be
++ *  found in the LICENSE.pixiv file in the root of the source tree.
++ */
++
++#include <AudioUnit/AudioUnit.h>
++
++#import "RTCAudioDeviceModule+Private.h"
++#include "rtc_base/ref_counted_object.h"
++
++@implementation RTCAudioDeviceModule {
++  rtc::scoped_refptr<webrtc::ios_adm::AudioDeviceModuleIOS> _nativeModule;
++}
++
++- (instancetype)init {
++  self = [super init];
++  _nativeModule = new rtc::RefCountedObject<webrtc::ios_adm::AudioDeviceModuleIOS>(false);
++  return self;
++}
++
++- (void)deliverRecordedData:(CMSampleBufferRef)sampleBuffer {
++  _nativeModule->OnDeliverRecordedExternalData(sampleBuffer);
++}
++
++- (void)setAudioUnitSubType:(OSType)audioUnitSubType {
++  _nativeModule->SetAudioUnitSubType(audioUnitSubType);
++}
++
++- (OSType)audioUnitSubType {
++  return _nativeModule->GetAudioUnitSubType();
++}
++
++#pragma mark - Private
++
++- (rtc::scoped_refptr<webrtc::ios_adm::AudioDeviceModuleIOS>)nativeModule {
++  return _nativeModule;
++}
++
++@end
+\ No newline at end of file
+diff --git a/sdk/objc/native/src/audio/audio_device_ios.h b/sdk/objc/native/src/audio/audio_device_ios.h
+index a57e719eab..a85642cb42 100644
+--- a/sdk/objc/native/src/audio/audio_device_ios.h
++++ b/sdk/objc/native/src/audio/audio_device_ios.h
+@@ -13,2 +13,3 @@
+ 
++#include <CoreMedia/CoreMedia.h>
+ #include <memory>
+@@ -147,2 +148,3 @@ class AudioDeviceIOS : public AudioDeviceGeneric,
+   void OnChangedOutputVolume() override;
++  void OnDeliverRecordedExternalData(CMSampleBufferRef sample_buffer);
+ 
+@@ -165,2 +167,4 @@ class AudioDeviceIOS : public AudioDeviceGeneric,
+ 
++  OSType audio_unit_sub_type;
++
+  private:
+diff --git a/sdk/objc/native/src/audio/voice_processing_audio_unit.h b/sdk/objc/native/src/audio/voice_processing_audio_unit.h
+index 72e29c0d67..518500eeda 100644
+--- a/sdk/objc/native/src/audio/voice_processing_audio_unit.h
++++ b/sdk/objc/native/src/audio/voice_processing_audio_unit.h
+@@ -72,3 +72,3 @@ class VoiceProcessingAudioUnit {
+   // Does not intialize the audio unit.
+-  bool Init();
++  bool Init(OSType audio_unit_sub_type);
+ 
+@@ -136,2 +136,3 @@ class VoiceProcessingAudioUnit {
+   VoiceProcessingAudioUnit::State state_;
++  OSType audio_unit_sub_type_;
+ };
+diff --git a/sdk/objc/native/src/audio/voice_processing_audio_unit.mm b/sdk/objc/native/src/audio/voice_processing_audio_unit.mm
+index 2325b2ed2e..7607fa4c4c 100644
+--- a/sdk/objc/native/src/audio/voice_processing_audio_unit.mm
++++ b/sdk/objc/native/src/audio/voice_processing_audio_unit.mm
+@@ -89,5 +89,7 @@ static OSStatus GetAGCState(AudioUnit audio_unit, UInt32* enabled) {
+ 
+-bool VoiceProcessingAudioUnit::Init() {
++bool VoiceProcessingAudioUnit::Init(OSType audio_unit_sub_type) {
+   RTC_DCHECK_EQ(state_, kInitRequired);
+ 
++  audio_unit_sub_type_ = audio_unit_sub_type;
++
+   // Create an audio component description to identify the Voice Processing
+@@ -96,3 +98,3 @@ static OSStatus GetAGCState(AudioUnit audio_unit, UInt32* enabled) {
+   vpio_unit_description.componentType = kAudioUnitType_Output;
+-  vpio_unit_description.componentSubType = kAudioUnitSubType_VoiceProcessingIO;
++  vpio_unit_description.componentSubType = audio_unit_sub_type;
+   vpio_unit_description.componentManufacturer = kAudioUnitManufacturer_Apple;
+@@ -273,59 +275,60 @@ static OSStatus GetAGCState(AudioUnit audio_unit, UInt32* enabled) {
+ 
+-  // AGC should be enabled by default for Voice Processing I/O units but it is
+-  // checked below and enabled explicitly if needed. This scheme is used
+-  // to be absolutely sure that the AGC is enabled since we have seen cases
+-  // where only zeros are recorded and a disabled AGC could be one of the
+-  // reasons why it happens.
+-  int agc_was_enabled_by_default = 0;
+-  UInt32 agc_is_enabled = 0;
+-  result = GetAGCState(vpio_unit_, &agc_is_enabled);
+-  if (result != noErr) {
+-    RTCLogError(@"Failed to get AGC state (1st attempt). "
+-                 "Error=%ld.",
+-                (long)result);
+-    // Example of error code: kAudioUnitErr_NoConnection (-10876).
+-    // All error codes related to audio units are negative and are therefore
+-    // converted into a postive value to match the UMA APIs.
+-    RTC_HISTOGRAM_COUNTS_SPARSE_100000(
+-        "WebRTC.Audio.GetAGCStateErrorCode1", (-1) * result);
+-  } else if (agc_is_enabled) {
+-    // Remember that the AGC was enabled by default. Will be used in UMA.
+-    agc_was_enabled_by_default = 1;
+-  } else {
+-    // AGC was initially disabled => try to enable it explicitly.
+-    UInt32 enable_agc = 1;
+-    result =
+-        AudioUnitSetProperty(vpio_unit_,
+-                             kAUVoiceIOProperty_VoiceProcessingEnableAGC,
+-                             kAudioUnitScope_Global, kInputBus, &enable_agc,
+-                             sizeof(enable_agc));
+-    if (result != noErr) {
+-      RTCLogError(@"Failed to enable the built-in AGC. "
+-                   "Error=%ld.",
+-                  (long)result);
+-      RTC_HISTOGRAM_COUNTS_SPARSE_100000(
+-          "WebRTC.Audio.SetAGCStateErrorCode", (-1) * result);
+-    }
++  if (audio_unit_sub_type_ == kAudioUnitSubType_VoiceProcessingIO) {
++    // AGC should be enabled by default for Voice Processing I/O units but it is
++    // checked below and enabled explicitly if needed. This scheme is used
++    // to be absolutely sure that the AGC is enabled since we have seen cases
++    // where only zeros are recorded and a disabled AGC could be one of the
++    // reasons why it happens.
++    int agc_was_enabled_by_default = 0;
++    UInt32 agc_is_enabled = 0;
+     result = GetAGCState(vpio_unit_, &agc_is_enabled);
+     if (result != noErr) {
+-      RTCLogError(@"Failed to get AGC state (2nd attempt). "
+-                   "Error=%ld.",
++      RTCLogError(@"Failed to get AGC state (1st attempt). "
++                  "Error=%ld.",
+                   (long)result);
++      // Example of error code: kAudioUnitErr_NoConnection (-10876).
++      // All error codes related to audio units are negative and are therefore
++      // converted into a postive value to match the UMA APIs.
+       RTC_HISTOGRAM_COUNTS_SPARSE_100000(
+-          "WebRTC.Audio.GetAGCStateErrorCode2", (-1) * result);
++          "WebRTC.Audio.GetAGCStateErrorCode1", (-1) * result);
++    } else if (agc_is_enabled) {
++      // Remember that the AGC was enabled by default. Will be used in UMA.
++      agc_was_enabled_by_default = 1;
++    } else {
++      // AGC was initially disabled => try to enable it explicitly.
++      UInt32 enable_agc = 1;
++      result =
++          AudioUnitSetProperty(vpio_unit_,
++                              kAUVoiceIOProperty_VoiceProcessingEnableAGC,
++                              kAudioUnitScope_Global, kInputBus, &enable_agc,
++                              sizeof(enable_agc));
++      if (result != noErr) {
++        RTCLogError(@"Failed to enable the built-in AGC. "
++                    "Error=%ld.",
++                    (long)result);
++        RTC_HISTOGRAM_COUNTS_SPARSE_100000(
++            "WebRTC.Audio.SetAGCStateErrorCode", (-1) * result);
++      }
++      result = GetAGCState(vpio_unit_, &agc_is_enabled);
++      if (result != noErr) {
++        RTCLogError(@"Failed to get AGC state (2nd attempt). "
++                    "Error=%ld.",
++                    (long)result);
++        RTC_HISTOGRAM_COUNTS_SPARSE_100000(
++            "WebRTC.Audio.GetAGCStateErrorCode2", (-1) * result);
++      }
+     }
+-  }
+-
+-  // Track if the built-in AGC was enabled by default (as it should) or not.
+-  RTC_HISTOGRAM_BOOLEAN("WebRTC.Audio.BuiltInAGCWasEnabledByDefault",
+-                        agc_was_enabled_by_default);
+-  RTCLog(@"WebRTC.Audio.BuiltInAGCWasEnabledByDefault: %d",
+-         agc_was_enabled_by_default);
+-  // As a final step, add an UMA histogram for tracking the AGC state.
+-  // At this stage, the AGC should be enabled, and if it is not, more work is
+-  // needed to find out the root cause.
+-  RTC_HISTOGRAM_BOOLEAN("WebRTC.Audio.BuiltInAGCIsEnabled", agc_is_enabled);
+-  RTCLog(@"WebRTC.Audio.BuiltInAGCIsEnabled: %u",
+-         static_cast<unsigned int>(agc_is_enabled));
+ 
++    // Track if the built-in AGC was enabled by default (as it should) or not.
++    RTC_HISTOGRAM_BOOLEAN("WebRTC.Audio.BuiltInAGCWasEnabledByDefault",
++                          agc_was_enabled_by_default);
++    RTCLog(@"WebRTC.Audio.BuiltInAGCWasEnabledByDefault: %d",
++          agc_was_enabled_by_default);
++    // As a final step, add an UMA histogram for tracking the AGC state.
++    // At this stage, the AGC should be enabled, and if it is not, more work is
++    // needed to find out the root cause.
++    RTC_HISTOGRAM_BOOLEAN("WebRTC.Audio.BuiltInAGCIsEnabled", agc_is_enabled);
++    RTCLog(@"WebRTC.Audio.BuiltInAGCIsEnabled: %u",
++          static_cast<unsigned int>(agc_is_enabled));
++  }
+   state_ = kInitialized;
+diff --git a/sdk/BUILD.gn b/sdk/BUILD.gn
+index e01ab97a6e..7528ad1e00 100644
+--- a/sdk/BUILD.gn
++++ b/sdk/BUILD.gn
+@@ -959,2 +985,8 @@ if (is_ios || is_mac) {
+ 
++      sources += [
++        "objc/api/peerconnection/RTCAudioDeviceModule.h",
++        "objc/api/peerconnection/RTCAudioDeviceModule.mm",
++        "objc/api/peerconnection/RTCAudioDeviceModule+Private.h",
++      ]
++
+       configs += [
+@@ -1245,2 +1278,3 @@ if (is_ios || is_mac) {
+           "objc/helpers/UIDevice+RTCDevice.h",
++          "objc/api/peerconnection/RTCAudioDeviceModule.h",
+           "objc/api/peerconnection/RTCAudioSource.h",
+@@ -1358,2 +1402,3 @@ if (is_ios || is_mac) {
+         sources = [
++          "objc/api/peerconnection/RTCAudioDeviceModule.h",
+           "objc/api/peerconnection/RTCAudioSource.h",
+diff --git a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h
+index 2b0489885f..7e5f7ca218 100644
+--- a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h
++++ b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h
+@@ -13,2 +13,3 @@
+ #import "RTCMacros.h"
++#import "RTCAudioDeviceModule.h"
+ 
+@@ -43,2 +44,6 @@ RTC_OBJC_EXPORT
+ 
++- (instancetype)initWithEncoderFactory:(nullable id<RTCVideoEncoderFactory>)encoderFactory
++                        decoderFactory:(nullable id<RTCVideoDecoderFactory>)decoderFactory
++                     audioDeviceModule:(RTCAudioDeviceModule *)audioDeviceModule;
++
+ /** Initialize an RTCAudioSource with constraints. */
+
+diff --git a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm
+index 2f324f7289..2f88b9a0b1 100644
+--- a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm
++++ b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm
+@@ -16,2 +16,3 @@
+ 
++#import "RTCAudioDeviceModule+Private.h"
+ #import "RTCAudioSource+Private.h"
+@@ -115,2 +116,26 @@ - (instancetype)init {
+ }
++
++- (instancetype)initWithEncoderFactory:(nullable id<RTCVideoEncoderFactory>)encoderFactory
++                        decoderFactory:(nullable id<RTCVideoDecoderFactory>)decoderFactory
++                     audioDeviceModule:(RTCAudioDeviceModule *)audioDeviceModule {
++#ifdef HAVE_NO_MEDIA
++  return [self initWithNoMedia];
++#else
++  std::unique_ptr<webrtc::VideoEncoderFactory> native_encoder_factory;
++  std::unique_ptr<webrtc::VideoDecoderFactory> native_decoder_factory;
++  if (encoderFactory) {
++    native_encoder_factory = webrtc::ObjCToNativeVideoEncoderFactory(encoderFactory);
++  }
++  if (decoderFactory) {
++    native_decoder_factory = webrtc::ObjCToNativeVideoDecoderFactory(decoderFactory);
++  }
++  return [self initWithNativeAudioEncoderFactory:webrtc::CreateBuiltinAudioEncoderFactory()
++                       nativeAudioDecoderFactory:webrtc::CreateBuiltinAudioDecoderFactory()
++                       nativeVideoEncoderFactory:std::move(native_encoder_factory)
++                       nativeVideoDecoderFactory:std::move(native_decoder_factory)
++                               audioDeviceModule:audioDeviceModule.nativeModule
++                           audioProcessingModule:nullptr];
++#endif
++}
++
+ - (instancetype)initNative {
+diff --git a/sdk/objc/native/src/audio/audio_device_ios.mm b/sdk/objc/native/src/audio/audio_device_ios.mm
+index f51714ce1d..5d799d7da4 100644
+--- a/sdk/objc/native/src/audio/audio_device_ios.mm
++++ b/sdk/objc/native/src/audio/audio_device_ios.mm
+@@ -11,2 +11,3 @@
+ #import <AVFoundation/AVFoundation.h>
++#import <CoreMedia/CoreMedia.h>
+ #import <Foundation/Foundation.h>
+@@ -232,3 +234,6 @@ static void LogDeviceInfo() {
+   RTC_DCHECK(!playing_);
+-  RTC_DCHECK(audio_unit_);
++  if (!audio_unit_) {
++    RTCLogError(@"StartPlayout failed because audio is disabled.");
++    return -1;
++  }
+   if (fine_audio_buffer_) {
+@@ -285,3 +290,2 @@ static void LogDeviceInfo() {
+   RTC_DCHECK(!recording_);
+-  RTC_DCHECK(audio_unit_);
+   if (fine_audio_buffer_) {
+@@ -289,3 +293,3 @@ static void LogDeviceInfo() {
+   }
+-  if (!playing_ && audio_unit_->GetState() == VoiceProcessingAudioUnit::kInitialized) {
++  if (!playing_ && audio_unit_ && audio_unit_->GetState() == VoiceProcessingAudioUnit::kInitialized) {
+     if (!audio_unit_->Start()) {
+@@ -307,3 +311,5 @@ static void LogDeviceInfo() {
+   if (!playing_) {
+-    ShutdownPlayOrRecord();
++    if (audio_unit_) {
++      ShutdownPlayOrRecord();
++    }
+     audio_is_initialized_ = false;
+@@ -369,2 +375,60 @@ static void LogDeviceInfo() {
+ 
++void AudioDeviceIOS::OnDeliverRecordedExternalData(CMSampleBufferRef sample_buffer) {
++  RTC_DCHECK_RUN_ON(&io_thread_checker_);
++
++  if (audio_unit_ && audio_unit_->GetState() != VoiceProcessingAudioUnit::kUninitialized) {
++    RTCLogError(@"External recorded data was provided while audio unit is enabled.");
++    return;
++  }
++
++  CMFormatDescriptionRef description = CMSampleBufferGetFormatDescription(sample_buffer);
++  const AudioStreamBasicDescription *asbd = CMAudioFormatDescriptionGetStreamBasicDescription(description);
++  if (!asbd) {
++    RTCLogError(@"External recorded data was not in audio format.");
++    return;
++  }
++
++  if (asbd->mSampleRate != record_parameters_.sample_rate() ||
++      asbd->mChannelsPerFrame != record_parameters_.channels()) {
++    record_parameters_.reset(asbd->mSampleRate, asbd->mChannelsPerFrame);
++    UpdateAudioDeviceBuffer();
++
++    // Create a modified audio buffer class which allows us to ask for,
++    // or deliver, any number of samples (and not only multiple of 10ms) to match
++    // the native audio unit buffer size.
++    RTC_DCHECK(audio_device_buffer_);
++    fine_audio_buffer_.reset(new FineAudioBuffer(audio_device_buffer_));
++  }
++
++  CMBlockBufferRef block_buffer = CMSampleBufferGetDataBuffer(sample_buffer);
++  if (block_buffer == nil) {
++    return;
++  }
++
++  AudioBufferList buffer_list;
++  CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(sample_buffer,
++                                                          nullptr,
++                                                          &buffer_list,
++                                                          sizeof(buffer_list),
++                                                          nullptr,
++                                                          nullptr,
++                                                          kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment,
++                                                          &block_buffer);
++
++  rtc::ArrayView<int16_t> view {
++    static_cast<int16_t*>(buffer_list.mBuffers[0].mData),
++    buffer_list.mBuffers[0].mDataByteSize / sizeof(int16_t)
++  };
++
++  if (asbd->mFormatFlags & kAudioFormatFlagIsBigEndian) {
++    for (auto& element : view) {
++      element = be16toh(element);
++    }
++  }
++
++  fine_audio_buffer_->DeliverRecordedData(view, kFixedRecordDelayEstimate);
++
++  CFRelease(block_buffer);
++}
++
+ OSStatus AudioDeviceIOS::OnDeliverRecordedData(AudioUnitRenderActionFlags* flags,
+@@ -734,3 +798,3 @@ static void LogDeviceInfo() {
+   audio_unit_.reset(new VoiceProcessingAudioUnit(bypass_voice_processing_, this));
+-  if (!audio_unit_->Init()) {
++  if (!audio_unit_->Init(audio_unit_sub_type)) {
+     audio_unit_.reset();
+@@ -757,4 +821,6 @@ static void LogDeviceInfo() {
+ 
+-  // If we're initialized, we must have an audio unit.
+-  RTC_DCHECK(audio_unit_);
++  if (!audio_unit_ && !CreateAudioUnit()) {
++    RTCLog(@"Failed to create audio unit.");
++    return;
++  }
+ 
+@@ -907,2 +973,7 @@ static void LogDeviceInfo() {
+   if (session.canPlayOrRecord) {
++    // There should be no audio unit at this point.
++    if (!CreateAudioUnit()) {
++      [session unlockForConfiguration];
++      return false;
++    }
+     if (!ConfigureAudioSessionLocked()) {
+diff --git a/sdk/objc/native/src/audio/audio_device_module_ios.h b/sdk/objc/native/src/audio/audio_device_module_ios.h
+index 9bcf114e32..075f3ac664 100644
+--- a/sdk/objc/native/src/audio/audio_device_module_ios.h
++++ b/sdk/objc/native/src/audio/audio_device_module_ios.h
+@@ -22,2 +22,6 @@
+ 
++#if defined(WEBRTC_IOS)
++#include <CoreMedia/CoreMedia.h>
++#endif
++
+ namespace webrtc {
+@@ -129,2 +133,5 @@ class AudioDeviceModuleIOS : public AudioDeviceModule {
+ #if defined(WEBRTC_IOS)
++  void OnDeliverRecordedExternalData(CMSampleBufferRef sample_buffer);
++  OSType GetAudioUnitSubType() const;
++  void SetAudioUnitSubType(OSType sub_type);
+   int GetPlayoutAudioParameters(AudioParameters* params) const override;
+@@ -138,2 +145,6 @@ class AudioDeviceModuleIOS : public AudioDeviceModule {
+   std::unique_ptr<AudioDeviceBuffer> audio_device_buffer_;
++
++#if defined(WEBRTC_IOS)
++  OSType audio_unit_sub_type_ = kAudioUnitSubType_VoiceProcessingIO;
++#endif // WEBRTC_IOS
+ };
+diff --git a/sdk/objc/native/src/audio/audio_device_module_ios.mm b/sdk/objc/native/src/audio/audio_device_module_ios.mm
+index 859442dc9e..e5c9a7ea3e 100644
+--- a/sdk/objc/native/src/audio/audio_device_module_ios.mm
++++ b/sdk/objc/native/src/audio/audio_device_module_ios.mm
+@@ -78,2 +78,4 @@
+ 
++    audio_device_->audio_unit_sub_type = audio_unit_sub_type_;
++
+     this->AttachAudioBuffer();
+@@ -652,3 +654,19 @@
+ 
++  OSType AudioDeviceModuleIOS::GetAudioUnitSubType() const {
++    return audio_unit_sub_type_;
++  }
++
++  void AudioDeviceModuleIOS::SetAudioUnitSubType(OSType sub_type) {
++    audio_unit_sub_type_ = sub_type;
++
++    if (audio_device_) {
++      audio_device_->audio_unit_sub_type = sub_type;
++    }
++  }
++
+ #if defined(WEBRTC_IOS)
++  void AudioDeviceModuleIOS::OnDeliverRecordedExternalData(CMSampleBufferRef sample_buffer) {
++    audio_device_->OnDeliverRecordedExternalData(sample_buffer);
++  }
++
+   int AudioDeviceModuleIOS::GetPlayoutAudioParameters(
