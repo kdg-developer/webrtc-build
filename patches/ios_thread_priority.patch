@@ -72,3 +72,39 @@ index b6d754e8be..2139ce8c76 100644
 -          TaskQueueFactory::Priority::NORMAL)) {
 +          TaskQueueFactory::Priority::LOW)) {
    bookkeeping_queue_.PostTask([this]() {
+diff --git a/modules/audio_device/audio_device_buffer.cc b/modules/audio_device/audio_device_buffer.cc
+index 977045419a..fe14b3a20a 100644
+--- a/modules/audio_device/audio_device_buffer.cc
++++ b/modules/audio_device/audio_device_buffer.cc
+@@ -45,3 +45,3 @@ AudioDeviceBuffer::AudioDeviceBuffer(TaskQueueFactory* task_queue_factory)
+           kTimerQueueName,
+-          TaskQueueFactory::Priority::NORMAL)),
++          TaskQueueFactory::Priority::HIGH)),
+       audio_transport_cb_(nullptr),
+diff --git a/audio/channel_send.cc b/audio/channel_send.cc
+index 47afc7982b..58e7051f75 100644
+--- a/audio/channel_send.cc
++++ b/audio/channel_send.cc
+@@ -474,3 +474,3 @@ ChannelSend::ChannelSend(
+           "AudioEncoder",
+-          TaskQueueFactory::Priority::NORMAL)),
++          TaskQueueFactory::Priority::HIGH)),
+       fixing_timestamp_stall_(
+diff --git a/audio/voip/audio_egress.cc b/audio/voip/audio_egress.cc
+index 1162824c9e..e72f7078ba 100644
+--- a/audio/voip/audio_egress.cc
++++ b/audio/voip/audio_egress.cc
+@@ -27,3 +27,3 @@ AudioEgress::AudioEgress(RtpRtcpInterface* rtp_rtcp,
+           "AudioEncoder",
+-          TaskQueueFactory::Priority::NORMAL)) {
++          TaskQueueFactory::Priority::HIGH)) {
+   audio_coding_->RegisterTransportCallback(this);
+diff --git a/modules/async_audio_processing/async_audio_processing.cc b/modules/async_audio_processing/async_audio_processing.cc
+index 9452f3bcf9..c7bfaa2667 100644
+--- a/modules/async_audio_processing/async_audio_processing.cc
++++ b/modules/async_audio_processing/async_audio_processing.cc
+@@ -46,3 +46,3 @@ AsyncAudioProcessing::AsyncAudioProcessing(
+           "AsyncAudioProcessing",
+-          TaskQueueFactory::Priority::NORMAL)) {
++          TaskQueueFactory::Priority::HIGH)) {
+   frame_processor_.SetSink([this](std::unique_ptr<AudioFrame> frame) {
