@@ -46,12 +46,6 @@ done
 pushd $SOURCE_DIR/webrtc/src
   for build_config in $TARGET_BUILD_CONFIGS; do
 
-    if [ $build_config = "release" ]; then
-      _is_debug="false"
-    else
-      _is_debug="true"
-    fi
-
     ./tools_webrtc/ios/build_ios_libs.sh -o $BUILD_DIR/webrtc/$build_config --build_config $build_config --arch $TARGET_ARCHS --bitcode --extra-gn-args " \
       rtc_libvpx_build_vp9=true \
       rtc_include_tests=false \
@@ -59,14 +53,14 @@ pushd $SOURCE_DIR/webrtc/src
       rtc_use_h264=false \
       rtc_enable_protobuf=false \
       use_rtti=true \
-      enable_dsyms=$_is_debug \
+      enable_dsyms=true \
     "
     _branch="M`echo $WEBRTC_VERSION | cut -d'.' -f1`"
     _commit="`echo $WEBRTC_VERSION | cut -d'.' -f3`"
     _revision=$WEBRTC_COMMIT
     _maint="`echo $WEBRTC_BUILD_VERSION | cut -d'.' -f4`"
 
-    cat <<EOF > $BUILD_DIR/webrtc/$build_config/WebRTC.framework/build_info.json
+    cat <<EOF > $BUILD_DIR/webrtc/$build_config/WebRTC.xcframework/build_info.json
 {
     "webrtc_version": "$_branch",
     "webrtc_commit": "$_commit",
@@ -104,7 +98,7 @@ pushd $SOURCE_DIR/webrtc/src
         rtc_libvpx_build_vp9=true
         enable_ios_bitcode=true
 
-        is_debug=$_is_debug
+        is_debug=true
         rtc_include_tests=false
         rtc_build_examples=false
         rtc_use_h264=false
