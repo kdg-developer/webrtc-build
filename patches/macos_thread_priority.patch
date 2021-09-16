@@ -12,18 +12,14 @@ index d743a0bf43..2b6a3209bd 100644
                    trials->Lookup("WebRTC-Bwe-NetworkRouteConstraints"));
    initial_config_.constraints = ConvertConstraints(bitrate_config, clock_);
 diff --git a/video/video_stream_encoder.cc b/video/video_stream_encoder.cc
-index 191918a591..39991e0d59 100644
+index 107110987b..6029554c8f 100644
 --- a/video/video_stream_encoder.cc
 +++ b/video/video_stream_encoder.cc
-@@ -659,7 +659,7 @@ VideoStreamEncoder::VideoStreamEncoder(
-           !field_trial::IsEnabled("WebRTC-QpParsingKillSwitch")),
-       encoder_queue_(task_queue_factory->CreateTaskQueue(
+@@ -661,3 +661,3 @@ VideoStreamEncoder::VideoStreamEncoder(
            "EncoderQueue",
 -          TaskQueueFactory::Priority::NORMAL)) {
 +          TaskQueueFactory::Priority::HIGH)) {
-   RTC_DCHECK(main_queue_);
-   RTC_DCHECK(encoder_stats_observer);
-   RTC_DCHECK_GE(number_of_cores, 1);
+   TRACE_EVENT0("webrtc", "VideoStreamEncoder::VideoStreamEncoder");
 diff --git a/modules/pacing/task_queue_paced_sender.cc b/modules/pacing/task_queue_paced_sender.cc
 index 709718ff16..d8f9b4c17c 100644
 --- a/modules/pacing/task_queue_paced_sender.cc
