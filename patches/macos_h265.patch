@@ -416,18 +416,13 @@ index e51fc9d319..5b42e2e8d4 100644
  #import "components/video_codec/RTCCodecSpecificInfoH264+Private.h"
 +#import "components/video_codec/RTCCodecSpecificInfoH265+Private.h"
  #import "sdk/objc/api/peerconnection/RTCEncodedImage+Private.h"
-@@ -52,2 +53,6 @@ int32_t RegisterEncodeCompleteCallback(EncodedImageCallback *callback) override
-                                 id<RTC_OBJC_TYPE(RTCCodecSpecificInfo)> _Nonnull info) {
-+      if (callback == nullptr) {
-+        return FALSE;
-+      }
-+
-       EncodedImage encodedImage = [frame nativeEncodedImage];
-@@ -59,2 +64,4 @@ int32_t RegisterEncodeCompleteCallback(EncodedImageCallback *callback) override
-             [(RTC_OBJC_TYPE(RTCCodecSpecificInfoH264) *)info nativeCodecSpecificInfo];
-+      } else if ([info isKindOfClass:[RTC_OBJC_TYPE(RTCCodecSpecificInfoH265) class]]) {
-+        codecSpecificInfo = [(RTCCodecSpecificInfoH265 *)info nativeCodecSpecificInfo];
-       }
+@@ -59,4 +60,6 @@ int32_t RegisterEncodeCompleteCallback(EncodedImageCallback *callback) override
+           codecSpecificInfo =
+               [(RTC_OBJC_TYPE(RTCCodecSpecificInfoH264) *)info nativeCodecSpecificInfo];
++        } else if ([info isKindOfClass:[RTC_OBJC_TYPE(RTCCodecSpecificInfoH265) class]]) {
++          codecSpecificInfo = [(RTCCodecSpecificInfoH265 *)info nativeCodecSpecificInfo];
+         }
+ 
 diff --git a/sdk/objc/components/video_codec/RTCCodecSpecificInfoH265+Private.h b/sdk/objc/components/video_codec/RTCCodecSpecificInfoH265+Private.h
 new file mode 100644
 index 0000000000..4b9ccc5dc0
@@ -1054,10 +1049,10 @@ index 0000000000..652fdf9e00
 \ No newline at end of file
 diff --git a/sdk/objc/components/video_codec/RTCVideoEncoderH265.mm b/sdk/objc/components/video_codec/RTCVideoEncoderH265.mm
 new file mode 100644
-index 0000000000..9497b6ecaf
+index 0000000000..b8e9196927
 --- /dev/null
 +++ b/sdk/objc/components/video_codec/RTCVideoEncoderH265.mm
-@@ -0,0 +1,583 @@
+@@ -0,0 +1,591 @@
 +/*
 + *  Copyright (c) 2018 The WebRTC project authors. All Rights Reserved.
 + *
@@ -1414,6 +1409,14 @@ index 0000000000..9497b6ecaf
 +  _bitrateAdjuster->SetTargetBitrateBps(_targetBitrateBps);
 +  [self setBitrateBps:_bitrateAdjuster->GetAdjustedBitrateBps()];
 +  return WEBRTC_VIDEO_CODEC_OK;
++}
++
++- (NSInteger)resolutionAlignment {
++  return 1;
++}
++
++- (BOOL)applyAlignmentToAllSimulcastLayers {
++  return NO;
 +}
 +
 +#pragma mark - Private
