@@ -81,7 +81,7 @@ pushd $SOURCE_DIR/webrtc/src
     _revision=$WEBRTC_COMMIT
     _maint="`echo $WEBRTC_BUILD_VERSION | cut -d'.' -f4`"
 
-    cat <<EOF > $_libs_dir/WebRTC.framework/Resources/build_info.json
+    cat <<EOF > $_libs_dir/WebRTC.xcframework/Resources/build_info.json
 {
     "webrtc_version": "$_branch",
     "webrtc_commit": "$_commit",
@@ -91,7 +91,7 @@ pushd $SOURCE_DIR/webrtc/src
 EOF
 
     # info.plistの編集(tools_wertc/ios/build_ios_libs.py内の処理を踏襲)
-    _info_plist_path=$_libs_dir/WebRTC.framework/Resources/Info.plist
+    _info_plist_path=$_libs_dir/WebRTC.xcframework/Resources/Info.plist
     _major_minor=(echo -n `/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" $_info_plist_path`)
     _version_number="$_major_minor.0"
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $_version_number" $_info_plist_path
@@ -101,7 +101,7 @@ EOF
       /usr/bin/ar -rc $_libs_dir/libwebrtc.a `find . -name '*.o'`
     popd
 
-    python2 tools_webrtc/libs/generate_licenses.py --target //sdk:mac_framework_objc $_libs_dir/WebRTC.framework/Resources $_libs_dir
+    python2 tools_webrtc/libs/generate_licenses.py --target //sdk:mac_framework_objc $_libs_dir/WebRTC.xcframework/Resources $_libs_dir
   done
 popd
 

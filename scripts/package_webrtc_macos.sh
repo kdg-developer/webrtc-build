@@ -26,10 +26,10 @@ for _build_config in $TARGET_BUILD_CONFIGS; do
   cp $BUILD_DIR/webrtc/${_build_config}/libwebrtc.a $BUILD_DIR/package/webrtc/${_build_config}/lib/
 
   # NOTICE
-  cp $BUILD_DIR/webrtc/${_build_config}/WebRTC.framework/Resources/LICENSE.md "$BUILD_DIR/package/webrtc/NOTICE"
+  cp $BUILD_DIR/webrtc/${_build_config}/WebRTC.xcframework/Resources/LICENSE.md "$BUILD_DIR/package/webrtc/NOTICE"
 
-  # WebRTC.framework
-  cp -R $BUILD_DIR/webrtc/${_build_config}/WebRTC.framework "$BUILD_DIR/package/webrtc/${_build_config}/WebRTC.framework"
+  # WebRTC.xcframework
+  cp -R $BUILD_DIR/webrtc/${_build_config}/WebRTC.xcframework "$BUILD_DIR/package/webrtc/${_build_config}/WebRTC.xcframework"
 
   # WebRTC.dSYM
   cp -R $BUILD_DIR/webrtc/$_build_config/WebRTC.dSYM "$BUILD_DIR/package/webrtc/$_build_config/WebRTC.dSYM"
