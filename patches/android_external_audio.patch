@@ -1,0 +1,92 @@
+diff --git a/sdk/android/api/org/webrtc/audio/JavaAudioDeviceModule.java b/sdk/android/api/org/webrtc/audio/JavaAudioDeviceModule.java
+index 4ca6466622..258f30f069 100644
+--- a/sdk/android/api/org/webrtc/audio/JavaAudioDeviceModule.java
++++ b/sdk/android/api/org/webrtc/audio/JavaAudioDeviceModule.java
+@@ -21,2 +21,3 @@ import org.webrtc.JniCommon;
+ import org.webrtc.Logging;
++import android.media.AudioPlaybackCaptureConfiguration;
+ 
+@@ -52,2 +53,3 @@ public class JavaAudioDeviceModule implements AudioDeviceModule {
+     private boolean useLowLatency;
++    private AudioPlaybackCaptureConfiguration playbackConfig;
+ 
+@@ -215,2 +217,10 @@ public class JavaAudioDeviceModule implements AudioDeviceModule {
+ 
++    /**
++     * Set custom {@link AudioPlaybackCaptureConfiguration} to use.
++     */
++    public Builder setPlaybackCaptureConfiguration(AudioPlaybackCaptureConfiguration playbackConfig) {
++      this.playbackConfig = playbackConfig;
++      return this;
++    }
++
+     /**
+@@ -249,3 +259,3 @@ public class JavaAudioDeviceModule implements AudioDeviceModule {
+           audioSource, audioFormat, audioRecordErrorCallback, audioRecordStateCallback,
+-          samplesReadyCallback, useHardwareAcousticEchoCanceler, useHardwareNoiseSuppressor);
++          samplesReadyCallback, useHardwareAcousticEchoCanceler, useHardwareNoiseSuppressor, playbackConfig);
+       final WebRtcAudioTrack audioOutput = new WebRtcAudioTrack(context, audioManager,
+diff --git a/sdk/android/src/java/org/webrtc/audio/WebRtcAudioRecord.java b/sdk/android/src/java/org/webrtc/audio/WebRtcAudioRecord.java
+index 734695937a..b6c6e0b4c8 100644
+--- a/sdk/android/src/java/org/webrtc/audio/WebRtcAudioRecord.java
++++ b/sdk/android/src/java/org/webrtc/audio/WebRtcAudioRecord.java
+@@ -17,2 +17,3 @@ import android.media.AudioFormat;
+ import android.media.AudioManager;
++import android.media.AudioPlaybackCaptureConfiguration;
+ import android.media.AudioRecord;
+@@ -84,2 +85,3 @@ class WebRtcAudioRecord {
+   private final int audioFormat;
++  private final @Nullable AudioPlaybackCaptureConfiguration playbackConfig;
+ 
+@@ -196,2 +198,13 @@ class WebRtcAudioRecord {
+       boolean isAcousticEchoCancelerSupported, boolean isNoiseSuppressorSupported) {
++    this(context, scheduler, audioManager, audioSource, 
++    audioFormat, errorCallback, stateCallback, audioSamplesReadyCallback, 
++    isAcousticEchoCancelerSupported, isNoiseSuppressorSupported, null);
++  }
++
++  public WebRtcAudioRecord(Context context, ScheduledExecutorService scheduler,
++                           AudioManager audioManager, int audioSource, int audioFormat,
++                           @Nullable AudioRecordErrorCallback errorCallback,
++                           @Nullable AudioRecordStateCallback stateCallback,
++                           @Nullable SamplesReadyCallback audioSamplesReadyCallback,
++                           boolean isAcousticEchoCancelerSupported, boolean isNoiseSuppressorSupported, @Nullable AudioPlaybackCaptureConfiguration playbackConfig) {
+     if (isAcousticEchoCancelerSupported && !WebRtcAudioEffects.isAcousticEchoCancelerSupported()) {
+@@ -212,2 +225,3 @@ class WebRtcAudioRecord {
+     this.isNoiseSuppressorSupported = isNoiseSuppressorSupported;
++    this.playbackConfig = playbackConfig;
+     Logging.d(TAG, "ctor" + WebRtcAudioUtils.getThreadInfo());
+@@ -301,3 +315,12 @@ class WebRtcAudioRecord {
+     try {
+-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
++      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && playbackConfig != null) {
++        // Use the AudioRecord.Builder class on Android Q (29) and above.
++        // Throws IllegalArgumentException.
++        audioRecord = createAudioRecordForScreencastOnQOrHigher(
++            sampleRate, channelConfig, audioFormat, bufferSizeInBytes, playbackConfig);
++        audioSourceMatchesRecordingSessionRef.set(null);
++        if (preferredDevice != null) {
++          setPreferredDevice(preferredDevice);
++        }
++      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+         // Use the AudioRecord.Builder class on Android M (23) and above.
+@@ -422,2 +445,19 @@ class WebRtcAudioRecord {
+ 
++  // 画面共有時に音声を取得するためにキャプチャする設定を追加
++  @RequiresApi(api = Build.VERSION_CODES.Q)
++  private static AudioRecord createAudioRecordForScreencastOnQOrHigher(
++      int sampleRate, int channelConfig, int audioFormat, int bufferSizeInBytes, AudioPlaybackCaptureConfiguration playbackConfig) {
++    Logging.d(TAG, "createAudioRecordForScreencastOnMOrHigher");
++    return new AudioRecord.Builder()
++        .setAudioPlaybackCaptureConfig(playbackConfig)
++        .setAudioFormat(new AudioFormat.Builder()
++            .setEncoding(audioFormat)
++            .setSampleRate(sampleRate)
++            .setChannelMask(channelConfig)
++            .build())
++        .setBufferSizeInBytes(bufferSizeInBytes)
++        .build();
++  }
++  // ここまで
++
+   private static AudioRecord createAudioRecordOnLowerThanM(
