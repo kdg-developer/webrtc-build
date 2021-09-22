@@ -6,26 +6,26 @@ on:
     - cron: "0 0 * * *"
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        ref: daily
-    - name: Disk Cleanup
-      run: |
-        Get-PSDrive
-        # Cache 済み Docker Image の削除
-        docker rmi $(docker images -q -a)
-        # Android SDK の削除
-        Remove-Item -Recurse -Force $Env:ANDROID_HOME -ErrorAction Ignore
-        Remove-Item -Recurse -Force $Env:ANDROID_NDK_HOME -ErrorAction Ignore
-        # JVM の削除
-        Remove-Item -Recurse -Force $Env:JAVA_HOME_11_X64 -ErrorAction Ignore
-        Remove-Item -Recurse -Force $Env:JAVA_HOME_8_X64 -ErrorAction Ignore
-        Get-PSDrive
-    - run: Copy-Item VERSION.head VERSION
-    - run: "& .\\build.windows.ps1"
+  # build-windows:
+  #   runs-on: windows-latest
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #     with:
+  #       ref: daily
+  #   - name: Disk Cleanup
+  #     run: |
+  #       Get-PSDrive
+  #       # Cache 済み Docker Image の削除
+  #       docker rmi $(docker images -q -a)
+  #       # Android SDK の削除
+  #       Remove-Item -Recurse -Force $Env:ANDROID_HOME -ErrorAction Ignore
+  #       Remove-Item -Recurse -Force $Env:ANDROID_NDK_HOME -ErrorAction Ignore
+  #       # JVM の削除
+  #       Remove-Item -Recurse -Force $Env:JAVA_HOME_11_X64 -ErrorAction Ignore
+  #       Remove-Item -Recurse -Force $Env:JAVA_HOME_8_X64 -ErrorAction Ignore
+  #       Get-PSDrive
+  #   - run: Copy-Item VERSION.head VERSION
+  #   - run: "& .\\build.windows.ps1"
   build-macos:
     strategy:
       fail-fast: false
@@ -46,12 +46,12 @@ jobs:
       fail-fast: false
       matrix:
         name:
-          - raspberry-pi-os_armv6
-          - raspberry-pi-os_armv7
-          - raspberry-pi-os_armv8
-          - ubuntu-18.04_armv8
-          - ubuntu-18.04_x86_64
-          - ubuntu-20.04_x86_64
+          # - raspberry-pi-os_armv6
+          # - raspberry-pi-os_armv7
+          # - raspberry-pi-os_armv8
+          # - ubuntu-18.04_armv8
+          # - ubuntu-18.04_x86_64
+          # - ubuntu-20.04_x86_64
           - android
     runs-on: ubuntu-18.04
     steps:
