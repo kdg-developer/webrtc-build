@@ -54,11 +54,7 @@ pushd $SOURCE_DIR/webrtc/src
 
     gn gen $_libs_dir --args="
       target_os=\"mac\"
-<<<<<<< HEAD
-      target_cpu=\"arm64\"
-=======
       target_cpu=\"$TARGET_ARCH\"
->>>>>>> upstream/master
       mac_deployment_target=\"$MAC_DEPLOYMENT_TARGET\"
       enable_stripping=true
       enable_dsyms=true
@@ -66,11 +62,8 @@ pushd $SOURCE_DIR/webrtc/src
       rtc_include_tests=false
       rtc_build_examples=false
       rtc_use_h264=false
-<<<<<<< HEAD
       rtc_enable_protobuf=false
-=======
       rtc_libvpx_build_vp9=true
->>>>>>> upstream/master
       rtc_enable_symbol_export=true
       rtc_enable_objc_symbol_export=false
       is_component_build=false
