@@ -1049,10 +1049,10 @@ index 0000000000..652fdf9e00
 \ No newline at end of file
 diff --git a/sdk/objc/components/video_codec/RTCVideoEncoderH265.mm b/sdk/objc/components/video_codec/RTCVideoEncoderH265.mm
 new file mode 100644
-index 0000000000..b8e9196927
+index 0000000000..530469c9d7
 --- /dev/null
 +++ b/sdk/objc/components/video_codec/RTCVideoEncoderH265.mm
-@@ -0,0 +1,591 @@
+@@ -0,0 +1,595 @@
 +/*
 + *  Copyright (c) 2018 The WebRTC project authors. All Rights Reserved.
 + *
@@ -1417,6 +1417,10 @@ index 0000000000..b8e9196927
 +
 +- (BOOL)applyAlignmentToAllSimulcastLayers {
 +  return NO;
++}
++
++- (BOOL)supportsNativeHandle {
++  return YES;
 +}
 +
 +#pragma mark - Private
