@@ -1,0 +1,11 @@
+diff --git a/sdk/objc/components/renderer/metal/RTCMTLNSVideoView.m b/sdk/objc/components/renderer/metal/RTCMTLNSVideoView.m
+index 625fb1caa7..0ea01708ef 100644
+--- a/sdk/objc/components/renderer/metal/RTCMTLNSVideoView.m
++++ b/sdk/objc/components/renderer/metal/RTCMTLNSVideoView.m
+@@ -97,3 +97,5 @@ - (void)drawInMTKView:(nonnull MTKView *)view {
+   if (view == self.metalView) {
+-    [_renderer drawFrame:self.videoFrame];
++    if (self.videoFrame.width > 0 && self.videoFrame.height > 0) {
++      [_renderer drawFrame:self.videoFrame];
++    }
+   }

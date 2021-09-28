@@ -34,6 +34,7 @@ pushd $SOURCE_DIR/webrtc/src
   patch -p1 < $SCRIPT_DIR/patches/h265.patch
   patch -p1 < $SCRIPT_DIR/patches/macos_h265.patch
   #patch -p1 < $SCRIPT_DIR/patches/macos_audio_source.patch
+  patch -p1 < $SCRIPT_DIR/patches/macos_empty_frame.patch
 
   pushd third_party/libjpeg_turbo
     patch < $SCRIPT_DIR/patches/libjpeg_turbo_mangle_jpeg_names.patch
@@ -107,6 +108,7 @@ EOF
     python2 tools_webrtc/libs/generate_licenses.py --target //sdk:mac_framework_objc $_libs_dir/WebRTC.framework/Resources $_libs_dir
 
     # xcframeworkの作成
+    rm -rf $BUILD_DIR/webrtc/${_build_config}/WebRTC.xcframework
     xcodebuild -create-xcframework \
           -framework $BUILD_DIR/webrtc/${_build_config}/WebRTC.framework -debug-symbols $BUILD_DIR/webrtc/$_build_config/WebRTC.dSYM \
           -output $BUILD_DIR/webrtc/${_build_config}/WebRTC.xcframework
