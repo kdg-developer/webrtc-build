@@ -35,6 +35,7 @@ pushd $SOURCE_DIR/webrtc/src
   patch -p1 < $SCRIPT_DIR/patches/h265.patch
   patch -p1 < $SCRIPT_DIR/patches/macos_h265.patch
   # patch -p1 < $SCRIPT_DIR/patches/macos_audio_source.patch
+  patch -p1 < $SCRIPT_DIR/patches/macos_empty_frame.patch
 
   pushd third_party/libjpeg_turbo
     patch < $SCRIPT_DIR/patches/libjpeg_turbo_mangle_jpeg_names.patch
