@@ -36,6 +36,7 @@ pushd $SOURCE_DIR/webrtc/src
   patch -p1 < $SCRIPT_DIR/patches/h265.patch
   patch -p1 < $SCRIPT_DIR/patches/macos_h265.patch
   patch -p1 < $SCRIPT_DIR/patches/macos_audio_source.patch
+  patch -p1 < $SCRIPT_DIR/patches/ssl_verify_callback_with_native_handle.patch
 popd
 
 for build_config in $TARGET_BUILD_CONFIGS; do
