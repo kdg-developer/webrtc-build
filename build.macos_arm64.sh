@@ -34,6 +34,7 @@ pushd $SOURCE_DIR/webrtc/src
   patch -p1 < $SCRIPT_DIR/patches/macos_h265.patch
   # patch -p1 < $SCRIPT_DIR/patches/macos_audio_source.patch
   patch -p1 < $SCRIPT_DIR/patches/macos_empty_frame.patch
+  patch -p1 < $SCRIPT_DIR/patches/macos_symbol_export.patch
   patch -p1 < $SCRIPT_DIR/patches/ssl_verify_callback_with_native_handle.patch
 
   pushd third_party/libjpeg_turbo
@@ -66,7 +67,7 @@ pushd $SOURCE_DIR/webrtc/src
       rtc_enable_protobuf=false
       rtc_libvpx_build_vp9=true
       rtc_enable_symbol_export=true
-      rtc_enable_objc_symbol_export=false
+      rtc_enable_objc_symbol_export=true
       is_component_build=false
       use_rtti=true
       libcxx_abi_unstable=false
