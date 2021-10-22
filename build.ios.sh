@@ -37,6 +37,7 @@ pushd $SOURCE_DIR/webrtc/src
   patch -p1 < $SCRIPT_DIR/patches/macos_h265.patch
   patch -p1 < $SCRIPT_DIR/patches/macos_audio_source.patch
   patch -p1 < $SCRIPT_DIR/patches/ssl_verify_callback_with_native_handle.patch
+  patch -p1 < $SCRIPT_DIR/patches/macos_symbol_export.patch
 
   pushd build
     patch -p1 < $SCRIPT_DIR/patches/ios_bitcode.patch
@@ -113,7 +114,7 @@ pushd $SOURCE_DIR/webrtc/src
         ios_deployment_target=\"$IOS_DEPLOYMENT_TARGET\"
         rtc_libvpx_build_vp9=true
         rtc_enable_symbol_export=true
-        rtc_enable_objc_symbol_export=false
+        rtc_enable_objc_symbol_export=true
         is_debug=$_is_debug
         enable_ios_bitcode=true
         enable_dsyms=true
