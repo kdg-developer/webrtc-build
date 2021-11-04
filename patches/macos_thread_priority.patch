@@ -1,16 +1,3 @@
-diff --git a/call/rtp_transport_controller_send.cc b/call/rtp_transport_controller_send.cc
-index d743a0bf43..2b6a3209bd 100644
---- a/call/rtp_transport_controller_send.cc
-+++ b/call/rtp_transport_controller_send.cc
-@@ -125,7 +125,7 @@ RtpTransportControllerSend::RtpTransportControllerSend(
-       retransmission_rate_limiter_(clock, kRetransmitWindowSizeMs),
-       task_queue_(task_queue_factory->CreateTaskQueue(
-           "rtp_send_controller",
--          TaskQueueFactory::Priority::NORMAL)) {
-+          TaskQueueFactory::Priority::HIGH)) {
-   ParseFieldTrial({&relay_bandwidth_cap_},
-                   trials->Lookup("WebRTC-Bwe-NetworkRouteConstraints"));
-   initial_config_.constraints = ConvertConstraints(bitrate_config, clock_);
 diff --git a/video/video_stream_encoder.cc b/video/video_stream_encoder.cc
 index 107110987b..6029554c8f 100644
 --- a/video/video_stream_encoder.cc
