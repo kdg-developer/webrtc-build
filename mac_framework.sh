@@ -2,8 +2,8 @@
 SCRIPT_DIR=$(cd $(dirname $0); pwd)
 PROJECT_NAME="WebRTC"
 
-ARM_DIR="${SCRIPT_DIR}/arm64/release"
-INTEL_DIR="${SCRIPT_DIR}/x86_64/release"
+ARM_DIR="${SCRIPT_DIR}/arm64/Frameworks"
+INTEL_DIR="${SCRIPT_DIR}/x86_64/Frameworks"
 OUTPUT_DIR="${SCRIPT_DIR}/out_xcframework"
 
 ARM_FRAMEWORK_PATH="${ARM_DIR}/${PROJECT_NAME}.framework"

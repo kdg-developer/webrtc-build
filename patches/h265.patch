@@ -163,35 +163,33 @@ index 25b92bed45..9fc003e64d 100644
        "mac/desktop_frame_cgimage.h",
 
 diff --git a/modules/rtp_rtcp/BUILD.gn b/modules/rtp_rtcp/BUILD.gn
-index 8204b6d724..d141239f39 100644
+index 00431dc097..cd9246571a 100644
 --- a/modules/rtp_rtcp/BUILD.gn
 +++ b/modules/rtp_rtcp/BUILD.gn
-@@ -248,6 +248,11 @@ rtc_library("rtp_rtcp") {
-     defines = [ "BWE_TEST_LOGGING_COMPILE_TIME_ENABLE=0" ]
-   }
-
-+  sources += [
+@@ -184,6 +184,8 @@ rtc_library("rtp_rtcp") {
+     "source/rtp_format.h",
+     "source/rtp_format_h264.cc",
+     "source/rtp_format_h264.h",
 +    "source/rtp_format_h265.cc",
 +    "source/rtp_format_h265.h",
-+  ]
-+
-   deps = [
-     ":rtp_rtcp_format",
-     ":rtp_video_header",
+     "source/rtp_format_video_generic.cc",
+     "source/rtp_format_video_generic.h",
+     "source/rtp_format_vp8.cc",
+@@ -233,6 +235,8 @@ rtc_library("rtp_rtcp") {
+     "source/video_rtp_depacketizer_generic.h",
+     "source/video_rtp_depacketizer_h264.cc",
+     "source/video_rtp_depacketizer_h264.h",
++    "source/video_rtp_depacketizer_h265.cc",
++    "source/video_rtp_depacketizer_h265.h",
+     "source/video_rtp_depacketizer_raw.cc",
+     "source/video_rtp_depacketizer_raw.h",
+     "source/video_rtp_depacketizer_vp8.cc",
 
 diff --git a/modules/rtp_rtcp/source/create_video_rtp_depacketizer.cc b/modules/rtp_rtcp/source/create_video_rtp_depacketizer.cc
-index f1e4eddb4b..7a14f4c321 100644
+index f1e4eddb4b..67546157c3 100644
 --- a/modules/rtp_rtcp/source/create_video_rtp_depacketizer.cc
 +++ b/modules/rtp_rtcp/source/create_video_rtp_depacketizer.cc
-@@ -13,6 +13,7 @@
- #include <memory>
-
- #include "api/video/video_codec_type.h"
-+#include "modules/rtp_rtcp/source/rtp_format_h265.h"
- #include "modules/rtp_rtcp/source/video_rtp_depacketizer.h"
- #include "modules/rtp_rtcp/source/video_rtp_depacketizer_av1.h"
- #include "modules/rtp_rtcp/source/video_rtp_depacketizer_generic.h"
-@@ -27,6 +28,8 @@ std::unique_ptr<VideoRtpDepacketizer> CreateVideoRtpDepacketizer(
+@@ -27,6 +27,8 @@ std::unique_ptr<VideoRtpDepacketizer> CreateVideoRtpDepacketizer(
    switch (codec) {
      case kVideoCodecH264:
        return std::make_unique<VideoRtpDepacketizerH264>();
@@ -202,28 +200,28 @@ index f1e4eddb4b..7a14f4c321 100644
      case kVideoCodecVP9:
 
 diff --git a/modules/rtp_rtcp/source/rtp_format.cc b/modules/rtp_rtcp/source/rtp_format.cc
-index 7550b70f69..a85c9e5b31 100644
+index 7550b70f69..2ce902051f 100644
 --- a/modules/rtp_rtcp/source/rtp_format.cc
 +++ b/modules/rtp_rtcp/source/rtp_format.cc
 @@ -14,6 +14,7 @@
-
+ 
  #include "absl/types/variant.h"
  #include "modules/rtp_rtcp/source/rtp_format_h264.h"
 +#include "modules/rtp_rtcp/source/rtp_format_h265.h"
  #include "modules/rtp_rtcp/source/rtp_format_video_generic.h"
  #include "modules/rtp_rtcp/source/rtp_format_vp8.h"
  #include "modules/rtp_rtcp/source/rtp_format_vp9.h"
-@@ -57,6 +58,10 @@ std::unique_ptr<RtpPacketizer> RtpPacketizer::Create(
-       return std::make_unique<RtpPacketizerAv1>(
-           payload, limits, rtp_video_header.frame_type,
-           rtp_video_header.is_last_frame_in_picture);
+@@ -43,6 +44,10 @@ std::unique_ptr<RtpPacketizer> RtpPacketizer::Create(
+       return std::make_unique<RtpPacketizerH264>(payload, limits,
+                                                  h264.packetization_mode);
+     }
 +    case kVideoCodecH265: {
 +      return std::make_unique<RtpPacketizerGeneric>(payload, limits,
 +                                                    rtp_video_header);
 +    }
-     default: {
-       return std::make_unique<RtpPacketizerGeneric>(payload, limits,
-                                                     rtp_video_header);
+     case kVideoCodecVP8: {
+       const auto& vp8 =
+           absl::get<RTPVideoHeaderVP8>(rtp_video_header.video_type_header);
 
 diff --git a/modules/rtp_rtcp/source/rtp_sender_video.cc b/modules/rtp_rtcp/source/rtp_sender_video.cc
 index 6e620777c6..bf2ca3c76f 100644
@@ -630,10 +628,10 @@ index 0000000000..eb880d2835
 
 diff --git a/common_video/h265/h265_pps_parser.cc b/common_video/h265/h265_pps_parser.cc
 new file mode 100644
-index 0000000000..f21decae07
+index 0000000000..1657a9b855
 --- /dev/null
 +++ b/common_video/h265/h265_pps_parser.cc
-@@ -0,0 +1,209 @@
+@@ -0,0 +1,175 @@
 +/*
 + *  Copyright (c) 2018 The WebRTC project authors. All Rights Reserved.
 + *
@@ -647,21 +645,18 @@ index 0000000000..f21decae07
 +#include "common_video/h265/h265_pps_parser.h"
 +
 +#include <memory>
++#include <limits>
 +#include <vector>
 +
++#include "absl/numeric/bits.h"
 +#include "common_video/h264/h264_common.h"
 +#include "common_video/h265/h265_common.h"
-+#include "rtc_base/bit_buffer.h"
++#include "rtc_base/bitstream_reader.h"
 +#include "rtc_base/logging.h"
 +
-+#define RETURN_EMPTY_ON_FAIL(x) \
-+  if (!(x)) {                   \
-+    return absl::nullopt;        \
-+  }
-+
 +namespace {
-+const int kMaxPicInitQpDeltaValue = 25;
-+const int kMinPicInitQpDeltaValue = -26;
++constexpr int kMaxPicInitQpDeltaValue = 25;
++constexpr int kMinPicInitQpDeltaValue = -26;
 +}  // namespace
 +
 +namespace webrtc {
@@ -676,9 +671,7 @@ index 0000000000..f21decae07
 +  // First, parse out rbsp, which is basically the source buffer minus emulation
 +  // bytes (the last byte of a 0x00 0x00 0x03 sequence). RBSP is defined in
 +  // section 7.3.1 of the H.264 standard.
-+  std::vector<uint8_t> unpacked_buffer = H264::ParseRbsp(data, length);
-+  rtc::BitBuffer bit_buffer(unpacked_buffer.data(), unpacked_buffer.size());
-+  return ParseInternal(&bit_buffer);
++  return ParseInternal(H264::ParseRbsp(data, length));
 +}
 +
 +bool H265PpsParser::ParsePpsIds(const uint8_t* data,
@@ -691,155 +684,126 @@ index 0000000000..f21decae07
 +  // bytes (the last byte of a 0x00 0x00 0x03 sequence). RBSP is defined in
 +  // section 7.3.1 of the H.265 standard.
 +  std::vector<uint8_t> unpacked_buffer = H264::ParseRbsp(data, length);
-+  rtc::BitBuffer bit_buffer(unpacked_buffer.data(), unpacked_buffer.size());
-+  return ParsePpsIdsInternal(&bit_buffer, pps_id, sps_id);
++  BitstreamReader reader(unpacked_buffer);
++  *pps_id = reader.ReadExponentialGolomb();
++  *sps_id = reader.ReadExponentialGolomb();
++  return reader.Ok();
 +}
 +
 +absl::optional<uint32_t> H265PpsParser::ParsePpsIdFromSliceSegmentLayerRbsp(
 +    const uint8_t* data,
 +    size_t length,
 +    uint8_t nalu_type) {
-+  rtc::BitBuffer slice_reader(data, length);
++  std::vector<uint8_t> unpacked_buffer = H264::ParseRbsp(data, length);
++  BitstreamReader slice_reader(unpacked_buffer);
 +
 +  // first_slice_segment_in_pic_flag: u(1)
-+  uint32_t first_slice_segment_in_pic_flag = 0;
-+  RETURN_EMPTY_ON_FAIL(
-+      slice_reader.ReadBits(&first_slice_segment_in_pic_flag, 1));
++  slice_reader.ConsumeBits(1);
 +
 +  if (nalu_type >= H265::NaluType::kBlaWLp &&
 +      nalu_type <= H265::NaluType::kRsvIrapVcl23) {
 +    // no_output_of_prior_pics_flag: u(1)
-+    RETURN_EMPTY_ON_FAIL(slice_reader.ConsumeBits(1));
++    slice_reader.ConsumeBits(1);
 +  }
 +
 +  // slice_pic_parameter_set_id: ue(v)
-+  uint32_t slice_pic_parameter_set_id = 0;
-+  if (!slice_reader.ReadExponentialGolomb(&slice_pic_parameter_set_id))
++  uint32_t slice_pic_parameter_set_id = slice_reader.ReadExponentialGolomb();
++  if (!slice_reader.Ok()) {
 +    return absl::nullopt;
++  }
 +
 +  return slice_pic_parameter_set_id;
 +}
 +
 +absl::optional<H265PpsParser::PpsState> H265PpsParser::ParseInternal(
-+    rtc::BitBuffer* bit_buffer) {
++  rtc::ArrayView<const uint8_t> buffer) {
++  BitstreamReader reader(buffer);
 +  PpsState pps;
-+
-+  RETURN_EMPTY_ON_FAIL(ParsePpsIdsInternal(bit_buffer, &pps.id, &pps.sps_id));
++  pps.id = reader.ReadExponentialGolomb();
++  pps.sps_id = reader.ReadExponentialGolomb();
 +
 +  uint32_t bits_tmp;
-+  uint32_t golomb_ignored;
 +  // entropy_coding_mode_flag: u(1)
-+  uint32_t entropy_coding_mode_flag;
-+  RETURN_EMPTY_ON_FAIL(bit_buffer->ReadBits(&entropy_coding_mode_flag, 1));
-+  pps.entropy_coding_mode_flag = entropy_coding_mode_flag != 0;
++  pps.entropy_coding_mode_flag = reader.Read<bool>();
 +  // bottom_field_pic_order_in_frame_present_flag: u(1)
-+  uint32_t bottom_field_pic_order_in_frame_present_flag;
-+  RETURN_EMPTY_ON_FAIL(
-+      bit_buffer->ReadBits(&bottom_field_pic_order_in_frame_present_flag, 1));
-+  pps.bottom_field_pic_order_in_frame_present_flag =
-+      bottom_field_pic_order_in_frame_present_flag != 0;
-+
++  pps.bottom_field_pic_order_in_frame_present_flag = reader.Read<bool>();
 +  // num_slice_groups_minus1: ue(v)
-+  uint32_t num_slice_groups_minus1;
-+  RETURN_EMPTY_ON_FAIL(
-+      bit_buffer->ReadExponentialGolomb(&num_slice_groups_minus1));
++  uint32_t num_slice_groups_minus1 = reader.ReadExponentialGolomb();
 +  if (num_slice_groups_minus1 > 0) {
-+    uint32_t slice_group_map_type;
 +    // slice_group_map_type: ue(v)
-+    RETURN_EMPTY_ON_FAIL(
-+        bit_buffer->ReadExponentialGolomb(&slice_group_map_type));
++    uint32_t slice_group_map_type = reader.ReadExponentialGolomb();
 +    if (slice_group_map_type == 0) {
-+      for (uint32_t i_group = 0; i_group <= num_slice_groups_minus1;
-+           ++i_group) {
++      for (uint32_t i_group = 0; i_group <= num_slice_groups_minus1 && reader.Ok(); ++i_group) {
 +        // run_length_minus1[iGroup]: ue(v)
-+        RETURN_EMPTY_ON_FAIL(
-+            bit_buffer->ReadExponentialGolomb(&golomb_ignored));
++        reader.ReadExponentialGolomb();
 +      }
 +    } else if (slice_group_map_type == 1) {
 +      // TODO(sprang): Implement support for dispersed slice group map type.
 +      // See 8.2.2.2 Specification for dispersed slice group map type.
 +    } else if (slice_group_map_type == 2) {
-+      for (uint32_t i_group = 0; i_group <= num_slice_groups_minus1;
-+           ++i_group) {
++      for (uint32_t i_group = 0;
++           i_group <= num_slice_groups_minus1 && reader.Ok(); ++i_group) {
 +        // top_left[iGroup]: ue(v)
-+        RETURN_EMPTY_ON_FAIL(
-+            bit_buffer->ReadExponentialGolomb(&golomb_ignored));
++        reader.ReadExponentialGolomb();
 +        // bottom_right[iGroup]: ue(v)
-+        RETURN_EMPTY_ON_FAIL(
-+            bit_buffer->ReadExponentialGolomb(&golomb_ignored));
++        reader.ReadExponentialGolomb();
 +      }
 +    } else if (slice_group_map_type == 3 || slice_group_map_type == 4 ||
 +               slice_group_map_type == 5) {
 +      // slice_group_change_direction_flag: u(1)
-+      RETURN_EMPTY_ON_FAIL(bit_buffer->ReadBits(&bits_tmp, 1));
++      bits_tmp = reader.ReadBit();
 +      // slice_group_change_rate_minus1: ue(v)
-+      RETURN_EMPTY_ON_FAIL(bit_buffer->ReadExponentialGolomb(&golomb_ignored));
++      reader.ReadExponentialGolomb();
 +    } else if (slice_group_map_type == 6) {
 +      // pic_size_in_map_units_minus1: ue(v)
-+      uint32_t pic_size_in_map_units_minus1;
-+      RETURN_EMPTY_ON_FAIL(
-+          bit_buffer->ReadExponentialGolomb(&pic_size_in_map_units_minus1));
++      uint32_t pic_size_in_map_units_minus1 = reader.ReadExponentialGolomb();
 +      uint32_t slice_group_id_bits = 0;
 +      uint32_t num_slice_groups = num_slice_groups_minus1 + 1;
 +      // If num_slice_groups is not a power of two an additional bit is required
 +      // to account for the ceil() of log2() below.
-+      if ((num_slice_groups & (num_slice_groups - 1)) != 0)
++      if ((num_slice_groups & (num_slice_groups - 1)) != 0) {
 +        ++slice_group_id_bits;
++      }
 +      while (num_slice_groups > 0) {
 +        num_slice_groups >>= 1;
 +        ++slice_group_id_bits;
 +      }
-+      for (uint32_t i = 0; i <= pic_size_in_map_units_minus1; i++) {
++      for (uint32_t i = 0; i <= pic_size_in_map_units_minus1 && reader.Ok(); i++) {
 +        // slice_group_id[i]: u(v)
 +        // Represented by ceil(log2(num_slice_groups_minus1 + 1)) bits.
-+        RETURN_EMPTY_ON_FAIL(
-+            bit_buffer->ReadBits(&bits_tmp, slice_group_id_bits));
++        bits_tmp = reader.ReadBits(slice_group_id_bits);
 +      }
 +    }
 +  }
 +  // num_ref_idx_l0_default_active_minus1: ue(v)
-+  RETURN_EMPTY_ON_FAIL(bit_buffer->ReadExponentialGolomb(&golomb_ignored));
++  reader.ReadExponentialGolomb();
 +  // num_ref_idx_l1_default_active_minus1: ue(v)
-+  RETURN_EMPTY_ON_FAIL(bit_buffer->ReadExponentialGolomb(&golomb_ignored));
++  reader.ReadExponentialGolomb();
 +  // weighted_pred_flag: u(1)
-+  uint32_t weighted_pred_flag;
-+  RETURN_EMPTY_ON_FAIL(bit_buffer->ReadBits(&weighted_pred_flag, 1));
-+  pps.weighted_pred_flag = weighted_pred_flag != 0;
++  pps.weighted_pred_flag = reader.ReadBit() != 0;
 +  // weighted_bipred_idc: u(2)
-+  RETURN_EMPTY_ON_FAIL(bit_buffer->ReadBits(&pps.weighted_bipred_idc, 2));
++  pps.weighted_bipred_idc = reader.ReadBits(2);
 +
 +  // pic_init_qp_minus26: se(v)
-+  RETURN_EMPTY_ON_FAIL(
-+      bit_buffer->ReadSignedExponentialGolomb(&pps.pic_init_qp_minus26));
++  pps.pic_init_qp_minus26 = reader.ReadSignedExponentialGolomb();
 +  // Sanity-check parsed value
-+  if (pps.pic_init_qp_minus26 > kMaxPicInitQpDeltaValue ||
++  if (!reader.Ok() || pps.pic_init_qp_minus26 > kMaxPicInitQpDeltaValue ||
 +      pps.pic_init_qp_minus26 < kMinPicInitQpDeltaValue) {
-+    RETURN_EMPTY_ON_FAIL(false);
++    return absl::nullopt;
 +  }
 +  // pic_init_qs_minus26: se(v)
-+  RETURN_EMPTY_ON_FAIL(bit_buffer->ReadExponentialGolomb(&golomb_ignored));
++  reader.ReadExponentialGolomb();
 +  // chroma_qp_index_offset: se(v)
-+  RETURN_EMPTY_ON_FAIL(bit_buffer->ReadExponentialGolomb(&golomb_ignored));
++  reader.ReadExponentialGolomb();
 +  // deblocking_filter_control_present_flag: u(1)
 +  // constrained_intra_pred_flag: u(1)
-+  RETURN_EMPTY_ON_FAIL(bit_buffer->ReadBits(&bits_tmp, 2));
++  bits_tmp = reader.ReadBits(2);
 +  // redundant_pic_cnt_present_flag: u(1)
-+  RETURN_EMPTY_ON_FAIL(
-+      bit_buffer->ReadBits(&pps.redundant_pic_cnt_present_flag, 1));
-+
++  pps.redundant_pic_cnt_present_flag = reader.ReadBit();
++  if (!reader.Ok()) {
++    return absl::nullopt;
++  }
 +  return pps;
-+}
-+
-+bool H265PpsParser::ParsePpsIdsInternal(rtc::BitBuffer* bit_buffer,
-+                                        uint32_t* pps_id,
-+                                        uint32_t* sps_id) {
-+  // pic_parameter_set_id: ue(v)
-+  if (!bit_buffer->ReadExponentialGolomb(pps_id))
-+    return false;
-+  // seq_parameter_set_id: ue(v)
-+  if (!bit_buffer->ReadExponentialGolomb(sps_id))
-+    return false;
-+  return true;
 +}
 +
 +}  // namespace webrtc
@@ -847,10 +811,10 @@ index 0000000000..f21decae07
 
 diff --git a/common_video/h265/h265_pps_parser.h b/common_video/h265/h265_pps_parser.h
 new file mode 100644
-index 0000000000..3dbb078c87
+index 0000000000..87b4069db0
 --- /dev/null
 +++ b/common_video/h265/h265_pps_parser.h
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,61 @@
 +/*
 + *  Copyright (c) 2018 The WebRTC project authors. All Rights Reserved.
 + *
@@ -864,15 +828,11 @@ index 0000000000..3dbb078c87
 +#ifndef COMMON_VIDEO_H265_PPS_PARSER_H_
 +#define COMMON_VIDEO_H265_PPS_PARSER_H_
 +
-+#include "absl/types/optional.h"
-+
-+#ifdef HAVE_STDINT_H
++#include <stddef.h>
 +#include <stdint.h>
-+#endif
 +
-+namespace rtc {
-+class BitBuffer;
-+}
++#include "absl/types/optional.h"
++#include "api/array_view.h"
 +
 +namespace webrtc {
 +
@@ -910,10 +870,7 @@ index 0000000000..3dbb078c87
 + protected:
 +  // Parse the PPS state, for a bit buffer where RBSP decoding has already been
 +  // performed.
-+  static absl::optional<PpsState> ParseInternal(rtc::BitBuffer* bit_buffer);
-+  static bool ParsePpsIdsInternal(rtc::BitBuffer* bit_buffer,
-+                                  uint32_t* pps_id,
-+                                  uint32_t* sps_id);
++  static absl::optional<PpsState> ParseInternal(rtc::ArrayView<const uint8_t> buffer);
 +};
 +
 +}  // namespace webrtc
@@ -923,10 +880,10 @@ index 0000000000..3dbb078c87
 
 diff --git a/common_video/h265/h265_sps_parser.cc b/common_video/h265/h265_sps_parser.cc
 new file mode 100644
-index 0000000000..d5732cbebe
+index 0000000000..8ad916b9df
 --- /dev/null
 +++ b/common_video/h265/h265_sps_parser.cc
-@@ -0,0 +1,192 @@
+@@ -0,0 +1,176 @@
 +/*
 + *  Copyright (c) 2018 The WebRTC project authors. All Rights Reserved.
 + *
@@ -937,22 +894,13 @@ index 0000000000..d5732cbebe
 + *  be found in the AUTHORS file in the root of the source tree.
 + */
 +
++#include "common_video/h265/h265_sps_parser.h"
++
 +#include <memory>
 +#include <vector>
 +
 +#include "common_video/h265/h265_common.h"
-+#include "common_video/h265/h265_sps_parser.h"
-+#include "rtc_base/bit_buffer.h"
-+#include "rtc_base/logging.h"
-+
-+namespace {
-+typedef absl::optional<webrtc::H265SpsParser::SpsState> OptionalSps;
-+
-+#define RETURN_EMPTY_ON_FAIL(x) \
-+  if (!(x)) {                   \
-+    return OptionalSps();       \
-+  }
-+}  // namespace
++#include "rtc_base/bitstream_reader.h"
 +
 +namespace webrtc {
 +
@@ -967,13 +915,13 @@ index 0000000000..d5732cbebe
 +    const uint8_t* data,
 +    size_t length) {
 +  std::vector<uint8_t> unpacked_buffer = H265::ParseRbsp(data, length);
-+  rtc::BitBuffer bit_buffer(unpacked_buffer.data(), unpacked_buffer.size());
-+  return ParseSpsUpToVui(&bit_buffer);
++  BitstreamReader reader(unpacked_buffer);
++  return ParseSpsUpToVui(reader);
 +}
 +
 +absl::optional<H265SpsParser::SpsState> H265SpsParser::ParseSpsUpToVui(
-+    rtc::BitBuffer* buffer) {
-+  // Now, we need to use a bit buffer to parse through the actual HEVC SPS
++    BitstreamReader& reader) {
++  // Now, we need to use a bitstream reader to parse through the actual HEVC SPS
 +  // format. See Section 7.3.2.2.1 ("General sequence parameter set data
 +  // syntax") of the H.265 standard for a complete description.
 +  // Since we only care about resolution, we ignore the majority of fields, but
@@ -986,9 +934,6 @@ index 0000000000..d5732cbebe
 +
 +  SpsState sps;
 +
-+  // The golomb values we have to read, not just consume.
-+  uint32_t golomb_ignored;
-+
 +  // separate_colour_plane_flag is optional (assumed 0), but has implications
 +  // about the ChromaArrayType, which modifies how we treat crop coordinates.
 +  uint32_t separate_colour_plane_flag = 0;
@@ -998,28 +943,26 @@ index 0000000000..d5732cbebe
 +  uint32_t chroma_format_idc = 1;
 +
 +  // sps_video_parameter_set_id: u(4)
-+  uint32_t sps_video_parameter_set_id = 0;
-+  RETURN_EMPTY_ON_FAIL(buffer->ReadBits(&sps_video_parameter_set_id, 4));
++  uint32_t sps_video_parameter_set_id = reader.ReadBits(4);
 +  // sps_max_sub_layers_minus1: u(3)
-+  uint32_t sps_max_sub_layers_minus1 = 0;
-+  RETURN_EMPTY_ON_FAIL(buffer->ReadBits(&sps_max_sub_layers_minus1, 3));
++  uint32_t sps_max_sub_layers_minus1 = reader.ReadBits(3);
 +  // sps_temporal_id_nesting_flag: u(1)
-+  RETURN_EMPTY_ON_FAIL(buffer->ConsumeBits(1));
++  reader.ConsumeBits(1);
 +  // profile_tier_level(1, sps_max_sub_layers_minus1). We are acutally not
 +  // using them, so read/skip over it.
 +  // general_profile_space+general_tier_flag+general_prfile_idc: u(8)
-+  RETURN_EMPTY_ON_FAIL(buffer->ConsumeBytes(1));
++  reader.ConsumeBits(8);
 +  // general_profile_compatabilitiy_flag[32]
-+  RETURN_EMPTY_ON_FAIL(buffer->ConsumeBytes(4));
++  reader.ConsumeBits(32);
 +  // general_progressive_source_flag + interlaced_source_flag+
 +  // non-packed_constraint flag + frame_only_constraint_flag: u(4)
-+  RETURN_EMPTY_ON_FAIL(buffer->ConsumeBits(4));
++  reader.ConsumeBits(4);
 +  // general_profile_idc decided flags or reserved.  u(43)
-+  RETURN_EMPTY_ON_FAIL(buffer->ConsumeBits(43));
++  reader.ConsumeBits(43);
 +  // general_inbld_flag or reserved 0: u(1)
-+  RETURN_EMPTY_ON_FAIL(buffer->ConsumeBits(1));
++  reader.ConsumeBits(1);
 +  // general_level_idc: u(8)
-+  RETURN_EMPTY_ON_FAIL(buffer->ConsumeBytes(1));
++  reader.ConsumeBits(8);
 +  // if max_sub_layers_minus1 >=1, read the sublayer profile information
 +  std::vector<uint32_t> sub_layer_profile_present_flags;
 +  std::vector<uint32_t> sub_layer_level_present_flags;
@@ -1027,56 +970,51 @@ index 0000000000..d5732cbebe
 +  uint32_t sub_layer_level_present = 0;
 +  for (uint32_t i = 0; i < sps_max_sub_layers_minus1; i++) {
 +    // sublayer_profile_present_flag and sublayer_level_presnet_flag:  u(2)
-+    RETURN_EMPTY_ON_FAIL(buffer->ReadBits(&sub_layer_profile_present, 1));
-+    RETURN_EMPTY_ON_FAIL(buffer->ReadBits(&sub_layer_level_present, 1));
++    sub_layer_profile_present = reader.ReadBits(1);
++    sub_layer_level_present = reader.ReadBits(1);
 +    sub_layer_profile_present_flags.push_back(sub_layer_profile_present);
 +    sub_layer_level_present_flags.push_back(sub_layer_level_present);
 +  }
 +  if (sps_max_sub_layers_minus1 > 0) {
 +    for (uint32_t j = sps_max_sub_layers_minus1; j < 8; j++) {
 +      // reserved 2 bits: u(2)
-+      RETURN_EMPTY_ON_FAIL(buffer->ConsumeBits(2));
++      reader.ConsumeBits(2);
 +    }
 +  }
 +  for (uint32_t k = 0; k < sps_max_sub_layers_minus1; k++) {
 +    if (sub_layer_profile_present_flags[k]) {  //
 +      // sub_layer profile_space/tier_flag/profile_idc. ignored. u(8)
-+      RETURN_EMPTY_ON_FAIL(buffer->ConsumeBytes(1));
++      reader.ConsumeBits(8);
 +      // profile_compatability_flag:  u(32)
-+      RETURN_EMPTY_ON_FAIL(buffer->ConsumeBytes(4));
++      reader.ConsumeBits(32);
 +      // sub_layer progressive_source_flag/interlaced_source_flag/
 +      // non_packed_constraint_flag/frame_only_constraint_flag: u(4)
-+      RETURN_EMPTY_ON_FAIL(buffer->ConsumeBits(4));
++      reader.ConsumeBits(4);
 +      // following 43-bits are profile_idc specific. We simply read/skip it.
 +      // u(43)
-+      RETURN_EMPTY_ON_FAIL(buffer->ConsumeBits(43));
++      reader.ConsumeBits(43);
 +      // 1-bit profile_idc specific inbld flag.  We simply read/skip it. u(1)
-+      RETURN_EMPTY_ON_FAIL(buffer->ConsumeBits(1));
++      reader.ConsumeBits(1);
 +    }
 +    if (sub_layer_level_present_flags[k]) {
 +      // sub_layer_level_idc: u(8)
-+      RETURN_EMPTY_ON_FAIL(buffer->ConsumeBytes(1));
++      reader.ConsumeBits(8);
 +    }
 +  }
 +  // sps_seq_parameter_set_id: ue(v)
-+  RETURN_EMPTY_ON_FAIL(buffer->ReadExponentialGolomb(&golomb_ignored));
++  reader.ReadExponentialGolomb();
 +  // chrome_format_idc: ue(v)
-+  RETURN_EMPTY_ON_FAIL(buffer->ReadExponentialGolomb(&chroma_format_idc));
++  chroma_format_idc = reader.ReadExponentialGolomb();
 +  if (chroma_format_idc == 3) {
 +    // seperate_colour_plane_flag: u(1)
-+    RETURN_EMPTY_ON_FAIL(buffer->ReadBits(&separate_colour_plane_flag, 1));
++    separate_colour_plane_flag = reader.ReadBits(1);
 +  }
-+  uint32_t pic_width_in_luma_samples = 0;
-+  uint32_t pic_height_in_luma_samples = 0;
 +  // pic_width_in_luma_samples: ue(v)
-+  RETURN_EMPTY_ON_FAIL(
-+      buffer->ReadExponentialGolomb(&pic_width_in_luma_samples));
++  uint32_t pic_width_in_luma_samples = reader.ReadExponentialGolomb();
 +  // pic_height_in_luma_samples: ue(v)
-+  RETURN_EMPTY_ON_FAIL(
-+      buffer->ReadExponentialGolomb(&pic_height_in_luma_samples));
++  uint32_t pic_height_in_luma_samples = reader.ReadExponentialGolomb();
 +  // conformance_window_flag: u(1)
-+  uint32_t conformance_window_flag = 0;
-+  RETURN_EMPTY_ON_FAIL(buffer->ReadBits(&conformance_window_flag, 1));
++  uint32_t conformance_window_flag = reader.ReadBits(1);
 +
 +  uint32_t conf_win_left_offset = 0;
 +  uint32_t conf_win_right_offset = 0;
@@ -1084,14 +1022,13 @@ index 0000000000..d5732cbebe
 +  uint32_t conf_win_bottom_offset = 0;
 +  if (conformance_window_flag) {
 +    // conf_win_left_offset: ue(v)
-+    RETURN_EMPTY_ON_FAIL(buffer->ReadExponentialGolomb(&conf_win_left_offset));
++    conf_win_left_offset = reader.ReadExponentialGolomb();
 +    // conf_win_right_offset: ue(v)
-+    RETURN_EMPTY_ON_FAIL(buffer->ReadExponentialGolomb(&conf_win_right_offset));
++    conf_win_right_offset = reader.ReadExponentialGolomb();
 +    // conf_win_top_offset: ue(v)
-+    RETURN_EMPTY_ON_FAIL(buffer->ReadExponentialGolomb(&conf_win_top_offset));
++    conf_win_top_offset = reader.ReadExponentialGolomb();
 +    // conf_win_bottom_offset: ue(v)
-+    RETURN_EMPTY_ON_FAIL(
-+        buffer->ReadExponentialGolomb(&conf_win_bottom_offset));
++    conf_win_bottom_offset = reader.ReadExponentialGolomb();
 +  }
 +
 +  // Far enough! We don't use the rest of the SPS.
@@ -1115,7 +1052,11 @@ index 0000000000..d5732cbebe
 +    sps.height -= sub_height_c * (conf_win_top_offset + conf_win_bottom_offset);
 +  }
 +
-+  return OptionalSps(sps);
++  if (!reader.Ok()) {
++    return absl::nullopt;
++  }
++
++  return sps;
 +}
 +
 +}  // namespace webrtc
@@ -1123,10 +1064,10 @@ index 0000000000..d5732cbebe
 
 diff --git a/common_video/h265/h265_sps_parser.h b/common_video/h265/h265_sps_parser.h
 new file mode 100644
-index 0000000000..25c1c75cc4
+index 0000000000..929153871e
 --- /dev/null
 +++ b/common_video/h265/h265_sps_parser.h
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,51 @@
 +/*
 + *  Copyright (c) 2018 The WebRTC project authors. All Rights Reserved.
 + *
@@ -1141,10 +1082,7 @@ index 0000000000..25c1c75cc4
 +#define COMMON_VIDEO_H265_H265_SPS_PARSER_H_
 +
 +#include "absl/types/optional.h"
-+
-+namespace rtc {
-+class BitBuffer;
-+}
++#include "rtc_base/bitstream_reader.h"
 +
 +namespace webrtc {
 +
@@ -1174,9 +1112,9 @@ index 0000000000..25c1c75cc4
 +  static absl::optional<SpsState> ParseSps(const uint8_t* data, size_t length);
 +
 + protected:
-+  // Parse the SPS state, up till the VUI part, for a bit buffer where RBSP
++  // Parse the SPS state, up till the VUI part, for a buffer where RBSP
 +  // decoding has already been performed.
-+  static absl::optional<SpsState> ParseSpsUpToVui(rtc::BitBuffer* buffer);
++  static absl::optional<SpsState> ParseSpsUpToVui(BitstreamReader& reader);
 +};
 +
 +}  // namespace webrtc
@@ -1185,10 +1123,10 @@ index 0000000000..25c1c75cc4
 
 diff --git a/common_video/h265/h265_vps_parser.cc b/common_video/h265/h265_vps_parser.cc
 new file mode 100644
-index 0000000000..59acb9d086
+index 0000000000..f41cbe5fc5
 --- /dev/null
 +++ b/common_video/h265/h265_vps_parser.cc
-@@ -0,0 +1,62 @@
+@@ -0,0 +1,53 @@
 +/*
 + *  Copyright (c) 2018 The WebRTC project authors. All Rights Reserved.
 + *
@@ -1204,17 +1142,7 @@ index 0000000000..59acb9d086
 +
 +#include "common_video/h265/h265_common.h"
 +#include "common_video/h265/h265_vps_parser.h"
-+#include "rtc_base/bit_buffer.h"
-+#include "rtc_base/logging.h"
-+
-+namespace {
-+typedef absl::optional<webrtc::H265VpsParser::VpsState> OptionalVps;
-+
-+#define RETURN_EMPTY_ON_FAIL(x) \
-+  if (!(x)) {                   \
-+    return OptionalVps();       \
-+  }
-+}  // namespace
++#include "rtc_base/bitstream_reader.h"
 +
 +namespace webrtc {
 +
@@ -1228,13 +1156,12 @@ index 0000000000..59acb9d086
 +absl::optional<H265VpsParser::VpsState> H265VpsParser::ParseVps(
 +    const uint8_t* data,
 +    size_t length) {
-+  std::vector<uint8_t> unpacked_buffer = H265::ParseRbsp(data, length);
-+  rtc::BitBuffer bit_buffer(unpacked_buffer.data(), unpacked_buffer.size());
-+  return ParseInternal(&bit_buffer);
++  return ParseInternal(H265::ParseRbsp(data, length));
 +}
 +
 +absl::optional<H265VpsParser::VpsState> H265VpsParser::ParseInternal(
-+    rtc::BitBuffer* buffer) {
++    rtc::ArrayView<const uint8_t> buffer) {
++  BitstreamReader reader(buffer);
 +  // Now, we need to use a bit buffer to parse through the actual HEVC VPS
 +  // format. See Section 7.3.2.1 ("Video parameter set RBSP syntax") of the
 +  // H.265 standard for a complete description.
@@ -1242,12 +1169,14 @@ index 0000000000..59acb9d086
 +  VpsState vps;
 +
 +  // vps_video_parameter_set_id: u(4)
-+  uint32_t vps_video_parameter_set_id = 0;
-+  RETURN_EMPTY_ON_FAIL(buffer->ReadBits(&vps_video_parameter_set_id, 4));
-+
-+  vps.id = vps_video_parameter_set_id;
++  vps.id = reader.ReadBits(4);
 +  vps.id = 0;
-+  return OptionalVps(vps);
++
++  if (!reader.Ok()) {
++    return absl::nullopt;
++  }
++
++  return vps;
 +}
 +
 +}  // namespace webrtc
@@ -1255,10 +1184,10 @@ index 0000000000..59acb9d086
 
 diff --git a/common_video/h265/h265_vps_parser.h b/common_video/h265/h265_vps_parser.h
 new file mode 100644
-index 0000000000..0b7c1af511
+index 0000000000..87b2a0e4d0
 --- /dev/null
 +++ b/common_video/h265/h265_vps_parser.h
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,39 @@
 +/*
 + *  Copyright (c) 2018 The WebRTC project authors. All Rights Reserved.
 + *
@@ -1273,10 +1202,6 @@ index 0000000000..0b7c1af511
 +#define COMMON_VIDEO_H265_H265_VPS_PARSER_H_
 +
 +#include "absl/types/optional.h"
-+
-+namespace rtc {
-+class BitBuffer;
-+}
 +
 +namespace webrtc {
 +
@@ -1297,7 +1222,7 @@ index 0000000000..0b7c1af511
 + protected:
 +  // Parse the VPS state, for a bit buffer where RBSP decoding has already been
 +  // performed.
-+  static absl::optional<VpsState> ParseInternal(rtc::BitBuffer* bit_buffer);
++  static absl::optional<VpsState> ParseInternal(rtc::ArrayView<const uint8_t> buffer);
 +};
 +
 +}  // namespace webrtc
@@ -1348,10 +1273,10 @@ index 0000000000..1e62b58977
 
 diff --git a/modules/rtp_rtcp/source/rtp_format_h265.cc b/modules/rtp_rtcp/source/rtp_format_h265.cc
 new file mode 100644
-index 0000000000..88786963d1
+index 0000000000..c7e407f1c8
 --- /dev/null
 +++ b/modules/rtp_rtcp/source/rtp_format_h265.cc
-@@ -0,0 +1,649 @@
+@@ -0,0 +1,345 @@
 +/*
 + *  Intel License
 + * See https://01.org/open-webrtc-toolkit
@@ -1376,31 +1301,6 @@ index 0000000000..88786963d1
 +namespace webrtc {
 +namespace {
 +
-+enum NaluType {
-+  kTrailN = 0,
-+  kTrailR = 1,
-+  kTsaN = 2,
-+  kTsaR = 3,
-+  kStsaN = 4,
-+  kStsaR = 5,
-+  kRadlN = 6,
-+  kRadlR = 7,
-+  kBlaWLp = 16,
-+  kBlaWRadl = 17,
-+  kBlaNLp = 18,
-+  kIdrWRadl = 19,
-+  kIdrNLp = 20,
-+  kCra = 21,
-+  kVps = 32,
-+  kHevcSps = 33,
-+  kHevcPps = 34,
-+  kHevcAud = 35,
-+  kPrefixSei = 39,
-+  kSuffixSei = 40,
-+  kHevcAp = 48,
-+  kHevcFu = 49
-+};
-+
 +/*
 +   0                   1                   2                   3
 +   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -1413,8 +1313,6 @@ index 0000000000..88786963d1
 +// H.265's FU is constructed of 2-byte payload header, and 1-byte FU header
 +static const size_t kHevcFuHeaderSize = 1;
 +static const size_t kHevcLengthFieldSize = 2;
-+static const size_t kHevcApHeaderSize =
-+    kHevcNalHeaderSize + kHevcLengthFieldSize;
 +
 +enum HevcNalHdrMasks {
 +  kHevcFBit = 0x80,
@@ -1428,29 +1326,6 @@ index 0000000000..88786963d1
 +
 +// Bit masks for FU headers.
 +enum HevcFuDefs { kHevcSBit = 0x80, kHevcEBit = 0x40, kHevcFuTypeBit = 0x3F };
-+
-+// TODO(pbos): Avoid parsing this here as well as inside the jitter buffer.
-+bool ParseApStartOffsets(const uint8_t* nalu_ptr,
-+                         size_t length_remaining,
-+                         std::vector<size_t>* offsets) {
-+  size_t offset = 0;
-+  while (length_remaining > 0) {
-+    // Buffer doesn't contain room for additional nalu length.
-+    if (length_remaining < sizeof(uint16_t))
-+      return false;
-+    uint16_t nalu_size = ByteReader<uint16_t>::ReadBigEndian(nalu_ptr);
-+    nalu_ptr += sizeof(uint16_t);
-+    length_remaining -= sizeof(uint16_t);
-+    if (nalu_size > length_remaining)
-+      return false;
-+    nalu_ptr += nalu_size;
-+    length_remaining -= nalu_size;
-+
-+    offsets->push_back(offset + kHevcApHeaderSize);
-+    offset += kHevcLengthFieldSize + nalu_size;
-+  }
-+  return true;
-+}
 +
 +}  // namespace
 +
@@ -1687,7 +1562,7 @@ index 0000000000..88786963d1
 +  uint8_t layer_id_h = payload_hdr_h & kHevcLayerIDHMask;
 +
 +  payload_hdr_h =
-+      (payload_hdr_h & kHevcTypeMaskN) | (kHevcAp << 1) | layer_id_h;
++      (payload_hdr_h & kHevcTypeMaskN) | (H265::NaluType::kAP << 1) | layer_id_h;
 +
 +  buffer[0] = payload_hdr_h;
 +  buffer[1] = payload_hdr_l;
@@ -1729,7 +1604,7 @@ index 0000000000..88786963d1
 +  fu_header |= type;
 +  // Now update payload_hdr_h with FU type.
 +  payload_hdr_h =
-+      (payload_hdr_h & kHevcTypeMaskN) | (kHevcFu << 1) | layer_id_h;
++      (payload_hdr_h & kHevcTypeMaskN) | (H265::NaluType::kFU << 1) | layer_id_h;
 +  const Fragment& fragment = packet->source_fragment;
 +  uint8_t* buffer = rtp_packet->AllocatePayload(
 +      kHevcFuHeaderSize + kHevcNalHeaderSize + fragment.length);
@@ -1746,269 +1621,15 @@ index 0000000000..88786963d1
 +  }
 +  packets_.pop();
 +}
-+
-+absl::optional<VideoRtpDepacketizer::ParsedRtpPayload> VideoRtpDepacketizerH265::Parse(
-+                                rtc::CopyOnWriteBuffer rtp_payload) {
-+  size_t payload_data_length = rtp_payload.size();
-+  if (payload_data_length == 0) {
-+    RTC_LOG(LS_ERROR) << "Empty payload.";
-+    return absl::nullopt;
-+  }
-+
-+  ParsedRtpPayload parsed_payload;
-+
-+  const uint8_t* payload_data = rtp_payload.data();
-+
-+  offset_ = 0;
-+  length_ = payload_data_length;
-+  modified_buffer_.reset();
-+
-+  uint8_t nal_type = (payload_data[0] & kHevcTypeMask) >> 1;
-+  parsed_payload.video_header
-+      .video_type_header.emplace<RTPVideoHeaderH265>();
-+
-+  if (nal_type == H265::NaluType::kFU) {
-+    // Fragmented NAL units (FU-A).
-+    if (!ParseFuNalu(&parsed_payload, payload_data))
-+      return absl::nullopt;
-+  } else {
-+    // We handle STAP-A and single NALU's the same way here. The jitter buffer
-+    // will depacketize the STAP-A into NAL units later.
-+    // TODO(sprang): Parse STAP-A offsets here and store in fragmentation vec.
-+    if (!ProcessApOrSingleNalu(&parsed_payload, payload_data))
-+      return absl::nullopt;
-+  }
-+
-+  const uint8_t* payload =
-+      modified_buffer_ ? modified_buffer_->data() : payload_data;
-+
-+  parsed_payload.video_payload = { payload + offset_, length_ };
-+  return parsed_payload;
-+}
-+
-+bool VideoRtpDepacketizerH265::ProcessApOrSingleNalu(
-+    ParsedRtpPayload* parsed_payload,
-+    const uint8_t* payload_data) {
-+  parsed_payload->video_header.width = 0;
-+  parsed_payload->video_header.height = 0;
-+  parsed_payload->video_header.codec = kVideoCodecH265;
-+  parsed_payload->video_header.is_first_packet_in_frame = true;
-+  auto& h265_header = absl::get<RTPVideoHeaderH265>(
-+      parsed_payload->video_header.video_type_header);
-+
-+  const uint8_t* nalu_start = payload_data + kHevcNalHeaderSize;
-+  const size_t nalu_length = length_ - kHevcNalHeaderSize;
-+  uint8_t nal_type = (payload_data[0] & kHevcTypeMask) >> 1;
-+  std::vector<size_t> nalu_start_offsets;
-+  if (nal_type == H265::NaluType::kAP) {
-+    // Skip the StapA header (StapA NAL type + length).
-+    if (length_ <= kHevcApHeaderSize) {
-+      RTC_LOG(LS_ERROR) << "AP header truncated.";
-+      return false;
-+    }
-+
-+    if (!ParseApStartOffsets(nalu_start, nalu_length, &nalu_start_offsets)) {
-+      RTC_LOG(LS_ERROR) << "AP packet with incorrect NALU packet lengths.";
-+      return false;
-+    }
-+
-+    h265_header.packetization_type = kH265AP;
-+    // nal_type = (payload_data[kHevcApHeaderSize] & kHevcTypeMask) >> 1;
-+  } else {
-+    h265_header.packetization_type = kH265SingleNalu;
-+    nalu_start_offsets.push_back(0);
-+  }
-+  h265_header.nalu_type = nal_type;
-+  parsed_payload->video_header.frame_type = VideoFrameType::kVideoFrameDelta;
-+
-+  nalu_start_offsets.push_back(length_ + kHevcLengthFieldSize);  // End offset.
-+  for (size_t i = 0; i < nalu_start_offsets.size() - 1; ++i) {
-+    size_t start_offset = nalu_start_offsets[i];
-+    // End offset is actually start offset for next unit, excluding length field
-+    // so remove that from this units length.
-+    size_t end_offset = nalu_start_offsets[i + 1] - kHevcLengthFieldSize;
-+    if (end_offset - start_offset < kHevcNalHeaderSize) {  // Same as H.264.
-+      RTC_LOG(LS_ERROR) << "AP packet too short";
-+      return false;
-+    }
-+
-+    H265NaluInfo nalu;
-+    nalu.type = (payload_data[start_offset] & kHevcTypeMask) >> 1;
-+    nalu.vps_id = -1;
-+    nalu.sps_id = -1;
-+    nalu.pps_id = -1;
-+    start_offset += kHevcNalHeaderSize;
-+    switch (nalu.type) {
-+      case H265::NaluType::kVps: {
-+        absl::optional<H265VpsParser::VpsState> vps = H265VpsParser::ParseVps(
-+            &payload_data[start_offset], end_offset - start_offset);
-+        if (vps) {
-+          nalu.vps_id = vps->id;
-+        } else {
-+          RTC_LOG(LS_WARNING) << "Failed to parse VPS id from VPS slice.";
-+        }
-+        break;
-+      }
-+      case H265::NaluType::kSps: {
-+        // Check if VUI is present in SPS and if it needs to be modified to
-+        // avoid excessive decoder latency.
-+
-+        // Copy any previous data first (likely just the first header).
-+        std::unique_ptr<rtc::Buffer> output_buffer(new rtc::Buffer());
-+        if (start_offset)
-+          output_buffer->AppendData(payload_data, start_offset);
-+
-+        absl::optional<H265SpsParser::SpsState> sps = H265SpsParser::ParseSps(
-+            &payload_data[start_offset], end_offset - start_offset);
-+
-+        if (sps) {
-+          parsed_payload->video_header.width = sps->width;
-+          parsed_payload->video_header.height = sps->height;
-+          nalu.sps_id = sps->id;
-+          nalu.vps_id = sps->vps_id;
-+        } else {
-+          RTC_LOG(LS_WARNING)
-+              << "Failed to parse SPS and VPS id from SPS slice.";
-+        }
-+        parsed_payload->video_header.frame_type = VideoFrameType::kVideoFrameKey;
-+        break;
-+      }
-+      case H265::NaluType::kPps: {
-+        uint32_t pps_id;
-+        uint32_t sps_id;
-+        if (H265PpsParser::ParsePpsIds(&payload_data[start_offset],
-+                                       end_offset - start_offset, &pps_id,
-+                                       &sps_id)) {
-+          nalu.pps_id = pps_id;
-+          nalu.sps_id = sps_id;
-+        } else {
-+          RTC_LOG(LS_WARNING)
-+              << "Failed to parse PPS id and SPS id from PPS slice.";
-+        }
-+        break;
-+      }
-+      case H265::NaluType::kIdrWRadl:
-+      case H265::NaluType::kIdrNLp:
-+      case H265::NaluType::kCra:
-+        parsed_payload->video_header.frame_type = VideoFrameType::kVideoFrameKey;
-+        ABSL_FALLTHROUGH_INTENDED;
-+      case H265::NaluType::kTrailN:
-+      case H265::NaluType::kTrailR: {
-+        absl::optional<uint32_t> pps_id =
-+            H265PpsParser::ParsePpsIdFromSliceSegmentLayerRbsp(
-+                &payload_data[start_offset], end_offset - start_offset,
-+                nalu.type);
-+        if (pps_id) {
-+          nalu.pps_id = *pps_id;
-+        } else {
-+          RTC_LOG(LS_WARNING) << "Failed to parse PPS id from slice of type: "
-+                              << static_cast<int>(nalu.type);
-+        }
-+        break;
-+      }
-+      // Slices below don't contain SPS or PPS ids.
-+      case H265::NaluType::kAud:
-+      case H265::NaluType::kTsaN:
-+      case H265::NaluType::kTsaR:
-+      case H265::NaluType::kStsaN:
-+      case H265::NaluType::kStsaR:
-+      case H265::NaluType::kRadlN:
-+      case H265::NaluType::kRadlR:
-+      case H265::NaluType::kBlaWLp:
-+      case H265::NaluType::kBlaWRadl:
-+      case H265::NaluType::kPrefixSei:
-+      case H265::NaluType::kSuffixSei:
-+        break;
-+      case H265::NaluType::kAP:
-+      case H265::NaluType::kFU:
-+        RTC_LOG(LS_WARNING) << "Unexpected AP or FU received.";
-+        return false;
-+    }
-+
-+    if (h265_header.nalus_length == kMaxNalusPerPacket) {
-+      RTC_LOG(LS_WARNING)
-+          << "Received packet containing more than " << kMaxNalusPerPacket
-+          << " NAL units. Will not keep track sps and pps ids for all of them.";
-+    } else {
-+      h265_header.nalus[h265_header.nalus_length++] = nalu;
-+    }
-+  }
-+  return true;
-+}
-+
-+bool VideoRtpDepacketizerH265::ParseFuNalu(
-+    ParsedRtpPayload* parsed_payload,
-+    const uint8_t* payload_data) {
-+  if (length_ < kHevcFuHeaderSize + kHevcNalHeaderSize) {
-+    RTC_LOG(LS_ERROR) << "FU NAL units truncated.";
-+    return false;
-+  }
-+  uint8_t f = payload_data[0] & kHevcFBit;
-+  uint8_t layer_id_h = payload_data[0] & kHevcLayerIDHMask;
-+  uint8_t layer_id_l_unshifted = payload_data[1] & kHevcLayerIDLMask;
-+  uint8_t tid = payload_data[1] & kHevcTIDMask;
-+
-+  uint8_t original_nal_type = payload_data[2] & kHevcTypeMaskInFuHeader;
-+  bool first_fragment = payload_data[2] & kHevcSBit;
-+  H265NaluInfo nalu;
-+  nalu.type = original_nal_type;
-+  nalu.vps_id = -1;
-+  nalu.sps_id = -1;
-+  nalu.pps_id = -1;
-+  if (first_fragment) {
-+    offset_ = 1;
-+    length_ -= 1;
-+    absl::optional<uint32_t> pps_id =
-+        H265PpsParser::ParsePpsIdFromSliceSegmentLayerRbsp(
-+            payload_data + kHevcNalHeaderSize + kHevcFuHeaderSize,
-+            length_ - kHevcFuHeaderSize, nalu.type);
-+    if (pps_id) {
-+      nalu.pps_id = *pps_id;
-+    } else {
-+      RTC_LOG(LS_WARNING)
-+          << "Failed to parse PPS from first fragment of FU NAL "
-+             "unit with original type: "
-+          << static_cast<int>(nalu.type);
-+    }
-+    uint8_t* payload = const_cast<uint8_t*>(payload_data + offset_);
-+    payload[0] = f | original_nal_type << 1 | layer_id_h;
-+    payload[1] = layer_id_l_unshifted | tid;
-+  } else {
-+    offset_ = kHevcNalHeaderSize + kHevcFuHeaderSize;
-+    length_ -= (kHevcNalHeaderSize + kHevcFuHeaderSize);
-+  }
-+
-+  if (original_nal_type == H265::NaluType::kIdrWRadl
-+      || original_nal_type == H265::NaluType::kIdrNLp
-+      || original_nal_type == H265::NaluType::kCra) {
-+    parsed_payload->video_header.frame_type = VideoFrameType::kVideoFrameKey;
-+  } else {
-+    parsed_payload->video_header.frame_type = VideoFrameType::kVideoFrameDelta;
-+  }
-+  parsed_payload->video_header.width = 0;
-+  parsed_payload->video_header.height = 0;
-+  parsed_payload->video_header.codec = kVideoCodecH265;
-+  parsed_payload->video_header.is_first_packet_in_frame = first_fragment;
-+  auto& h265_header = absl::get<RTPVideoHeaderH265>(
-+      parsed_payload->video_header.video_type_header);
-+  h265_header.packetization_type = kH265FU;
-+  h265_header.nalu_type = original_nal_type;
-+  if (first_fragment) {
-+    h265_header.nalus[h265_header.nalus_length] = nalu;
-+    h265_header.nalus_length = 1;
-+  }
-+  return true;
-+}
-+
 +}  // namespace webrtc
 \ No newline at end of file
 
 diff --git a/modules/rtp_rtcp/source/rtp_format_h265.h b/modules/rtp_rtcp/source/rtp_format_h265.h
 new file mode 100644
-index 0000000000..8495a693b0
+index 0000000000..e5f77a379b
 --- /dev/null
 +++ b/modules/rtp_rtcp/source/rtp_format_h265.h
-@@ -0,0 +1,129 @@
+@@ -0,0 +1,110 @@
 +/*
 + *  Intel License
 + * See https://01.org/open-webrtc-toolkit
@@ -2116,25 +1737,6 @@ index 0000000000..8495a693b0
 +  size_t num_packets_left_;
 +
 +  RTC_DISALLOW_COPY_AND_ASSIGN(RtpPacketizerH265);
-+};
-+
-+// Depacketizer for H.265.
-+class VideoRtpDepacketizerH265 : public VideoRtpDepacketizer {
-+ public:
-+  virtual ~VideoRtpDepacketizerH265() {}
-+
-+  absl::optional<ParsedRtpPayload> Parse(
-+             rtc::CopyOnWriteBuffer rtp_payload) override;
-+
-+ private:
-+  bool ParseFuNalu(ParsedRtpPayload* parsed_payload,
-+                   const uint8_t* payload_data);
-+  bool ProcessApOrSingleNalu(ParsedRtpPayload* parsed_payload,
-+                             const uint8_t* payload_data);
-+
-+  size_t offset_;
-+  size_t length_;
-+  std::unique_ptr<rtc::Buffer> modified_buffer_;
 +};
 +}  // namespace webrtc
 +#endif  // WEBRTC_MODULES_RTP_RTCP_SOURCE_RTP_FORMAT_H265_H_
@@ -2607,3 +2209,388 @@ index 0000000000..252403eaa1
 +
 +#endif  // MODULES_VIDEO_CODING_H264_SPS_PPS_TRACKER_H_
 \ No newline at end of file
+
+diff --git a/modules/rtp_rtcp/source/video_rtp_depacketizer_h265.h b/modules/rtp_rtcp/source/video_rtp_depacketizer_h265.h
+new file mode 100644
+index 0000000000..1e5a4140a8
+--- /dev/null
++++ b/modules/rtp_rtcp/source/video_rtp_depacketizer_h265.h
+@@ -0,0 +1,39 @@
++/*
++ *  Copyright (c) 2020 The WebRTC project authors. All Rights Reserved.
++ *
++ *  Use of this source code is governed by a BSD-style license
++ *  that can be found in the LICENSE file in the root of the source
++ *  tree. An additional intellectual property rights grant can be found
++ *  in the file PATENTS.  All contributing project authors may
++ *  be found in the AUTHORS file in the root of the source tree.
++ */
++
++#ifndef MODULES_RTP_RTCP_SOURCE_VIDEO_RTP_DEPACKETIZER_H265_H_
++#define MODULES_RTP_RTCP_SOURCE_VIDEO_RTP_DEPACKETIZER_H265_H_
++
++#include "absl/types/optional.h"
++#include "modules/rtp_rtcp/source/video_rtp_depacketizer.h"
++#include "rtc_base/copy_on_write_buffer.h"
++
++namespace webrtc {
++class VideoRtpDepacketizerH265 : public VideoRtpDepacketizer {
++ public:
++  ~VideoRtpDepacketizerH265() override = default;
++
++  absl::optional<ParsedRtpPayload> Parse(
++      rtc::CopyOnWriteBuffer rtp_payload) override;
++
++ private:
++  bool ParseFuNalu(ParsedRtpPayload* parsed_payload,
++                   const uint8_t* payload_data);
++  bool ProcessApOrSingleNalu(ParsedRtpPayload* parsed_payload,
++                             const uint8_t* payload_data);
++
++  size_t offset_;
++  size_t length_;
++  std::unique_ptr<rtc::Buffer> modified_buffer_;
++
++};
++}  // namespace webrtc
++
++#endif  // MODULES_RTP_RTCP_SOURCE_VIDEO_RTP_DEPACKETIZER_H265_H_
+
+diff --git a/modules/rtp_rtcp/source/video_rtp_depacketizer_h265.cc b/modules/rtp_rtcp/source/video_rtp_depacketizer_h265.cc
+new file mode 100644
+index 0000000000..07bd667fd3
+--- /dev/null
++++ b/modules/rtp_rtcp/source/video_rtp_depacketizer_h265.cc
+@@ -0,0 +1,332 @@
++/*
++ *  Copyright (c) 2020 The WebRTC project authors. All Rights Reserved.
++ *
++ *  Use of this source code is governed by a BSD-style license
++ *  that can be found in the LICENSE file in the root of the source
++ *  tree. An additional intellectual property rights grant can be found
++ *  in the file PATENTS.  All contributing project authors may
++ *  be found in the AUTHORS file in the root of the source tree.
++ */
++
++#include "modules/rtp_rtcp/source/video_rtp_depacketizer_h265.h"
++
++#include <cstddef>
++#include <cstdint>
++#include <utility>
++#include <vector>
++
++#include "absl/base/macros.h"
++#include "absl/types/optional.h"
++#include "absl/types/variant.h"
++#include "common_video/h264/h264_common.h"
++#include "common_video/h265/h265_common.h"
++#include "common_video/h265/h265_pps_parser.h"
++#include "common_video/h265/h265_sps_parser.h"
++#include "common_video/h265/h265_vps_parser.h"
++#include "common_video/h264/sps_vui_rewriter.h"
++#include "modules/rtp_rtcp/source/byte_io.h"
++#include "modules/rtp_rtcp/source/video_rtp_depacketizer.h"
++#include "rtc_base/checks.h"
++#include "rtc_base/copy_on_write_buffer.h"
++#include "rtc_base/logging.h"
++
++namespace webrtc {
++namespace {
++
++constexpr size_t kHevcNalHeaderSize = 2;
++constexpr size_t kHevcFuHeaderSize = 1;
++constexpr size_t kHevcLengthFieldSize = 2;
++constexpr size_t kHevcApHeaderSize =
++    kHevcNalHeaderSize + kHevcLengthFieldSize;
++
++enum HevcNalHdrMasks : uint8_t {
++  kHevcFBit = 0x80,
++  kHevcTypeMask = 0x7E,
++  kHevcLayerIDHMask = 0x1,
++  kHevcLayerIDLMask = 0xF8,
++  kHevcTIDMask = 0x7,
++  kHevcTypeMaskN = 0x81,
++  kHevcTypeMaskInFuHeader = 0x3F
++};
++
++// Bit masks for FU headers.
++enum FuDefs : uint8_t { kHevcSBit = 0x80, kHevcEBit = 0x40, kHevcFuTypeBit = 0x3F };
++
++// TODO(pbos): Avoid parsing this here as well as inside the jitter buffer.
++bool ParseStapAStartOffsets(const uint8_t* nalu_ptr,
++                         size_t length_remaining,
++                         std::vector<size_t>* offsets) {
++  size_t offset = 0;
++  while (length_remaining > 0) {
++    // Buffer doesn't contain room for additional nalu length.
++    if (length_remaining < sizeof(uint16_t))
++      return false;
++    uint16_t nalu_size = ByteReader<uint16_t>::ReadBigEndian(nalu_ptr);
++    nalu_ptr += sizeof(uint16_t);
++    length_remaining -= sizeof(uint16_t);
++    if (nalu_size > length_remaining)
++      return false;
++    nalu_ptr += nalu_size;
++    length_remaining -= nalu_size;
++
++    offsets->push_back(offset + kHevcApHeaderSize);
++    offset += kHevcLengthFieldSize + nalu_size;
++  }
++  return true;
++}
++}
++
++absl::optional<VideoRtpDepacketizer::ParsedRtpPayload> VideoRtpDepacketizerH265::Parse(
++                                rtc::CopyOnWriteBuffer rtp_payload) {
++  size_t payload_data_length = rtp_payload.size();
++  if (payload_data_length == 0) {
++    RTC_LOG(LS_ERROR) << "Empty payload.";
++    return absl::nullopt;
++  }
++
++  ParsedRtpPayload parsed_payload;
++
++  const uint8_t* payload_data = rtp_payload.data();
++
++  offset_ = 0;
++  length_ = payload_data_length;
++  modified_buffer_.reset();
++
++  uint8_t nal_type = (payload_data[0] & kHevcTypeMask) >> 1;
++  parsed_payload.video_header
++      .video_type_header.emplace<RTPVideoHeaderH265>();
++
++  if (nal_type == H265::NaluType::kFU) {
++    // Fragmented NAL units (FU-A).
++    if (!ParseFuNalu(&parsed_payload, payload_data))
++      return absl::nullopt;
++  } else {
++    // We handle STAP-A and single NALU's the same way here. The jitter buffer
++    // will depacketize the STAP-A into NAL units later.
++    // TODO(sprang): Parse STAP-A offsets here and store in fragmentation vec.
++    if (!ProcessApOrSingleNalu(&parsed_payload, payload_data))
++      return absl::nullopt;
++  }
++
++  const uint8_t* payload =
++      modified_buffer_ ? modified_buffer_->data() : payload_data;
++
++  parsed_payload.video_payload = { payload + offset_, length_ };
++  return parsed_payload;
++}
++
++bool VideoRtpDepacketizerH265::ProcessApOrSingleNalu(
++    ParsedRtpPayload* parsed_payload,
++    const uint8_t* payload_data) {
++  parsed_payload->video_header.width = 0;
++  parsed_payload->video_header.height = 0;
++  parsed_payload->video_header.codec = kVideoCodecH265;
++  parsed_payload->video_header.is_first_packet_in_frame = true;
++  auto& h265_header = absl::get<RTPVideoHeaderH265>(
++      parsed_payload->video_header.video_type_header);
++
++  const uint8_t* nalu_start = payload_data + kHevcNalHeaderSize;
++  const size_t nalu_length = length_ - kHevcNalHeaderSize;
++  uint8_t nal_type = (payload_data[0] & kHevcTypeMask) >> 1;
++  std::vector<size_t> nalu_start_offsets;
++  if (nal_type == H265::NaluType::kAP) {
++    // Skip the StapA header (StapA NAL type + length).
++    if (length_ <= kHevcApHeaderSize) {
++      RTC_LOG(LS_ERROR) << "AP header truncated.";
++      return false;
++    }
++
++    if (!ParseStapAStartOffsets(nalu_start, nalu_length, &nalu_start_offsets)) {
++      RTC_LOG(LS_ERROR) << "AP packet with incorrect NALU packet lengths.";
++      return false;
++    }
++
++    h265_header.packetization_type = kH265AP;
++    // nal_type = (payload_data[kHevcApHeaderSize] & kHevcTypeMask) >> 1;
++  } else {
++    h265_header.packetization_type = kH265SingleNalu;
++    nalu_start_offsets.push_back(0);
++  }
++  h265_header.nalu_type = nal_type;
++  parsed_payload->video_header.frame_type = VideoFrameType::kVideoFrameDelta;
++
++  nalu_start_offsets.push_back(length_ + kHevcLengthFieldSize);  // End offset.
++  for (size_t i = 0; i < nalu_start_offsets.size() - 1; ++i) {
++    size_t start_offset = nalu_start_offsets[i];
++    // End offset is actually start offset for next unit, excluding length field
++    // so remove that from this units length.
++    size_t end_offset = nalu_start_offsets[i + 1] - kHevcLengthFieldSize;
++    if (end_offset - start_offset < kHevcNalHeaderSize) {  // Same as H.264.
++      RTC_LOG(LS_ERROR) << "AP packet too short";
++      return false;
++    }
++
++    H265NaluInfo nalu;
++    nalu.type = (payload_data[start_offset] & kHevcTypeMask) >> 1;
++    nalu.vps_id = -1;
++    nalu.sps_id = -1;
++    nalu.pps_id = -1;
++    start_offset += kHevcNalHeaderSize;
++    switch (nalu.type) {
++      case H265::NaluType::kVps: {
++        absl::optional<H265VpsParser::VpsState> vps = H265VpsParser::ParseVps(
++            &payload_data[start_offset], end_offset - start_offset);
++        if (vps) {
++          nalu.vps_id = vps->id;
++        } else {
++          RTC_LOG(LS_WARNING) << "Failed to parse VPS id from VPS slice.";
++        }
++        break;
++      }
++      case H265::NaluType::kSps: {
++        // Check if VUI is present in SPS and if it needs to be modified to
++        // avoid excessive decoder latency.
++
++        // Copy any previous data first (likely just the first header).
++        std::unique_ptr<rtc::Buffer> output_buffer(new rtc::Buffer());
++        if (start_offset)
++          output_buffer->AppendData(payload_data, start_offset);
++
++        absl::optional<H265SpsParser::SpsState> sps = H265SpsParser::ParseSps(
++            &payload_data[start_offset], end_offset - start_offset);
++
++        if (sps) {
++          parsed_payload->video_header.width = sps->width;
++          parsed_payload->video_header.height = sps->height;
++          nalu.sps_id = sps->id;
++          nalu.vps_id = sps->vps_id;
++        } else {
++          RTC_LOG(LS_WARNING)
++              << "Failed to parse SPS and VPS id from SPS slice.";
++        }
++        parsed_payload->video_header.frame_type = VideoFrameType::kVideoFrameKey;
++        break;
++      }
++      case H265::NaluType::kPps: {
++        uint32_t pps_id;
++        uint32_t sps_id;
++        if (H265PpsParser::ParsePpsIds(&payload_data[start_offset],
++                                       end_offset - start_offset, &pps_id,
++                                       &sps_id)) {
++          nalu.pps_id = pps_id;
++          nalu.sps_id = sps_id;
++        } else {
++          RTC_LOG(LS_WARNING)
++              << "Failed to parse PPS id and SPS id from PPS slice.";
++        }
++        break;
++      }
++      case H265::NaluType::kIdrWRadl:
++      case H265::NaluType::kIdrNLp:
++      case H265::NaluType::kCra:
++        parsed_payload->video_header.frame_type = VideoFrameType::kVideoFrameKey;
++        ABSL_FALLTHROUGH_INTENDED;
++      case H265::NaluType::kTrailN:
++      case H265::NaluType::kTrailR: {
++        absl::optional<uint32_t> pps_id =
++            H265PpsParser::ParsePpsIdFromSliceSegmentLayerRbsp(
++                &payload_data[start_offset], end_offset - start_offset,
++                nalu.type);
++        if (pps_id) {
++          nalu.pps_id = *pps_id;
++        } else {
++          RTC_LOG(LS_WARNING) << "Failed to parse PPS id from slice of type: "
++                              << static_cast<int>(nalu.type);
++        }
++        break;
++      }
++      // Slices below don't contain SPS or PPS ids.
++      case H265::NaluType::kAud:
++      case H265::NaluType::kTsaN:
++      case H265::NaluType::kTsaR:
++      case H265::NaluType::kStsaN:
++      case H265::NaluType::kStsaR:
++      case H265::NaluType::kRadlN:
++      case H265::NaluType::kRadlR:
++      case H265::NaluType::kBlaWLp:
++      case H265::NaluType::kBlaWRadl:
++      case H265::NaluType::kPrefixSei:
++      case H265::NaluType::kSuffixSei:
++        break;
++      case H265::NaluType::kAP:
++      case H265::NaluType::kFU:
++        RTC_LOG(LS_WARNING) << "Unexpected AP or FU received.";
++        return false;
++    }
++
++    if (h265_header.nalus_length == kMaxNalusPerPacket) {
++      RTC_LOG(LS_WARNING)
++          << "Received packet containing more than " << kMaxNalusPerPacket
++          << " NAL units. Will not keep track sps and pps ids for all of them.";
++    } else {
++      h265_header.nalus[h265_header.nalus_length++] = nalu;
++    }
++  }
++  return true;
++}
++
++bool VideoRtpDepacketizerH265::ParseFuNalu(
++    ParsedRtpPayload* parsed_payload,
++    const uint8_t* payload_data) {
++  if (length_ < kHevcFuHeaderSize + kHevcNalHeaderSize) {
++    RTC_LOG(LS_ERROR) << "FU NAL units truncated.";
++    return false;
++  }
++  uint8_t f = payload_data[0] & kHevcFBit;
++  uint8_t layer_id_h = payload_data[0] & kHevcLayerIDHMask;
++  uint8_t layer_id_l_unshifted = payload_data[1] & kHevcLayerIDLMask;
++  uint8_t tid = payload_data[1] & kHevcTIDMask;
++
++  uint8_t original_nal_type = payload_data[2] & kHevcTypeMaskInFuHeader;
++  bool first_fragment = payload_data[2] & kHevcSBit;
++  H265NaluInfo nalu;
++  nalu.type = original_nal_type;
++  nalu.vps_id = -1;
++  nalu.sps_id = -1;
++  nalu.pps_id = -1;
++  if (first_fragment) {
++    offset_ = 1;
++    length_ -= 1;
++    absl::optional<uint32_t> pps_id =
++        H265PpsParser::ParsePpsIdFromSliceSegmentLayerRbsp(
++            payload_data + kHevcNalHeaderSize + kHevcFuHeaderSize,
++            length_ - kHevcFuHeaderSize, nalu.type);
++    if (pps_id) {
++      nalu.pps_id = *pps_id;
++    } else {
++      RTC_LOG(LS_WARNING)
++          << "Failed to parse PPS from first fragment of FU NAL "
++             "unit with original type: "
++          << static_cast<int>(nalu.type);
++    }
++    uint8_t* payload = const_cast<uint8_t*>(payload_data + offset_);
++    payload[0] = f | original_nal_type << 1 | layer_id_h;
++    payload[1] = layer_id_l_unshifted | tid;
++  } else {
++    offset_ = kHevcNalHeaderSize + kHevcFuHeaderSize;
++    length_ -= (kHevcNalHeaderSize + kHevcFuHeaderSize);
++  }
++
++  if (original_nal_type == H265::NaluType::kIdrWRadl
++      || original_nal_type == H265::NaluType::kIdrNLp
++      || original_nal_type == H265::NaluType::kCra) {
++    parsed_payload->video_header.frame_type = VideoFrameType::kVideoFrameKey;
++  } else {
++    parsed_payload->video_header.frame_type = VideoFrameType::kVideoFrameDelta;
++  }
++  parsed_payload->video_header.width = 0;
++  parsed_payload->video_header.height = 0;
++  parsed_payload->video_header.codec = kVideoCodecH265;
++  parsed_payload->video_header.is_first_packet_in_frame = first_fragment;
++  auto& h265_header = absl::get<RTPVideoHeaderH265>(
++      parsed_payload->video_header.video_type_header);
++  h265_header.packetization_type = kH265FU;
++  h265_header.nalu_type = original_nal_type;
++  if (first_fragment) {
++    h265_header.nalus[h265_header.nalus_length] = nalu;
++    h265_header.nalus_length = 1;
++  }
++  return true;
++}
++
++}  // namespace webrtc
