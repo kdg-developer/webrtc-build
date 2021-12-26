@@ -1,9 +1,18 @@
+diff --git a/api/task_queue/BUILD.gn b/api/task_queue/BUILD.gn
+index 1072057e3f..5e71e60954 100644
+--- a/api/task_queue/BUILD.gn
++++ b/api/task_queue/BUILD.gn
+@@ -78,3 +78,3 @@ rtc_library("default_task_queue_factory") {
+   visibility = [ "*" ]
+-  if (!is_ios && !is_android) {
++  if (!is_mac && !is_ios && !is_android) {
+     poisonous = [ "default_task_queue" ]
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h b/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h
 new file mode 100644
-index 0000000000..ec4b447920
+index 0000000000..bd5f40fec7
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h
-@@ -0,0 +1,23 @@
+@@ -0,0 +1,29 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -15,25 +24,30 @@ index 0000000000..ec4b447920
 +
 +#if defined(WEBRTC_IOS)
 +#include "sdk/objc/native/src/audio/audio_device_module_ios.h"
++#endif
++#if defined(WEBRTC_MAC)
++#include "sdk/objc/native/src/audio/audio_device_module_mac.h"
++#endif
 +
 +NS_ASSUME_NONNULL_BEGIN
 +
 +@interface RTCAudioDeviceModule ()
-+
++#if defined(WEBRTC_IOS)
 +@property(nonatomic, readonly) rtc::scoped_refptr<webrtc::ios_adm::AudioDeviceModuleIOS>
 +    nativeModule;
-+
++#elif defined(WEBRTC_MAC)
++@property(nonatomic, readonly) rtc::scoped_refptr<webrtc::mac_adm::AudioDeviceModuleMac>
++    nativeModule;
++#endif
 +@end
 +
 +NS_ASSUME_NONNULL_END
-+#endif
-\ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
 new file mode 100644
-index 0000000000..49f2c8c8d1
+index 0000000000..f157122247
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
-@@ -0,0 +1,25 @@
+@@ -0,0 +1,26 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -50,11 +64,12 @@ index 0000000000..49f2c8c8d1
 +
 +RTC_OBJC_EXPORT
 +
-+NS_CLASS_AVAILABLE_IOS(2_0)
 +@interface RTCAudioDeviceModule : NSObject
 +
++#if defined(WEBRTC_IOS)
 +- (void)deliverRecordedData:(CMSampleBufferRef)sampleBuffer;
 +@property(nonatomic, assign) OSType audioUnitSubType;
++#endif
 +
 +@end
 +
@@ -62,10 +77,10 @@ index 0000000000..49f2c8c8d1
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
 new file mode 100644
-index 0000000000..4caa26446e
+index 0000000000..7870edb713
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,61 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -79,33 +94,53 @@ index 0000000000..4caa26446e
 +#include "rtc_base/ref_counted_object.h"
 +
 +@implementation RTCAudioDeviceModule {
++  #if defined(WEBRTC_IOS)
 +  rtc::scoped_refptr<webrtc::ios_adm::AudioDeviceModuleIOS> _nativeModule;
++  #elif defined(WEBRTC_MAC)
++  rtc::scoped_refptr<webrtc::mac_adm::AudioDeviceModuleMac> _nativeModule;
++  #endif
 +}
 +
 +- (instancetype)init {
 +  self = [super init];
++  #if defined(WEBRTC_IOS)
 +  _nativeModule = new rtc::RefCountedObject<webrtc::ios_adm::AudioDeviceModuleIOS>(false);
++  #elif defined(WEBRTC_MAC)
++  _nativeModule = new rtc::RefCountedObject<webrtc::mac_adm::AudioDeviceModuleMac>(false);
++  #endif
 +  return self;
 +}
 +
++#if defined(WEBRTC_IOS)
 +- (void)deliverRecordedData:(CMSampleBufferRef)sampleBuffer {
 +  _nativeModule->OnDeliverRecordedExternalData(sampleBuffer);
 +}
++#endif
 +
++#if defined(WEBRTC_IOS)
 +- (void)setAudioUnitSubType:(OSType)audioUnitSubType {
 +  _nativeModule->SetAudioUnitSubType(audioUnitSubType);
 +}
++#endif
 +
++#if defined(WEBRTC_IOS)
 +- (OSType)audioUnitSubType {
 +  return _nativeModule->GetAudioUnitSubType();
 +}
++#endif
 +
 +#pragma mark - Private
 +
++#if defined(WEBRTC_IOS)
 +- (rtc::scoped_refptr<webrtc::ios_adm::AudioDeviceModuleIOS>)nativeModule {
 +  return _nativeModule;
 +}
-+
++#endif
++#if defined(WEBRTC_MAC)
++- (rtc::scoped_refptr<webrtc::mac_adm::AudioDeviceModuleMac>)nativeModule {
++  return _nativeModule;
++}
++#endif
 +@end
 \ No newline at end of file
 diff --git a/sdk/objc/native/src/audio/audio_device_ios.h b/sdk/objc/native/src/audio/audio_device_ios.h
@@ -269,23 +304,130 @@ index 2325b2ed2e..7607fa4c4c 100644
 +  }
    state_ = kInitialized;
 diff --git a/sdk/BUILD.gn b/sdk/BUILD.gn
-index e01ab97a6e..7528ad1e00 100644
+index 90e245a18d..72bde9e13b 100644
 --- a/sdk/BUILD.gn
 +++ b/sdk/BUILD.gn
-@@ -959,2 +985,8 @@ if (is_ios || is_mac) {
+@@ -374,6 +374,100 @@ if (is_ios || is_mac) {
+       }
+     }
  
-+      sources += [
++    if (is_mac) {
++      rtc_library("native_api_audio_device_module") {
++        visibility = [ "*" ]
++
++        sources = [
++          "objc/native/api/audio_device_module.h",
++          "objc/native/api/audio_device_module.mm",
++        ]
++
++        deps = [
++          ":audio_device",
++          "../modules/audio_device:audio_device_api",
++          "../modules/audio_device:audio_device_generic",
++          "../rtc_base:checks",
++          "../rtc_base:rtc_base_approved",
++          "../system_wrappers",
++        ]
++      }
++
++      rtc_source_set("audio_session_observer") {
++        visibility = [ ":*" ]
++
++        sources = [ "objc/native/src/audio/audio_session_observer.h" ]
++
++        deps = [
++          "../rtc_base",
++          "../rtc_base:threading",
++        ]
++      }
++
++      rtc_library("audio_device") {
++        visibility = [ "*" ]
++
++        sources = [
++          "objc/native/src/audio/audio_device_module_mac.h",
++          "objc/native/src/audio/audio_device_module_mac.mm",
++          "objc/native/src/audio/helpers.h",
++          "objc/native/src/audio/helpers.mm",
++        ]
++
++        deps = [
++          ":audio_session_observer",
++          ":base_objc",
++          "../api:array_view",
++          "../api/task_queue",
++          "../api/task_queue:default_task_queue_factory",
++          "../modules/audio_device:audio_device_api",
++          "../modules/audio_device:audio_device_buffer",
++          "../modules/audio_device:audio_device_generic",
++          "../rtc_base",
++          "../rtc_base:checks",
++          "../rtc_base:threading",
++          "../system_wrappers:field_trial",
++          "../system_wrappers:metrics",
++        ]
++        absl_deps = [ "//third_party/abseil-cpp/absl/base:core_headers" ]
++
++        frameworks = [ "AudioToolbox.framework" ]
++      }
++
++      rtc_source_set("network_monitor_observer") {
++        visibility = [ ":*" ]
++
++        sources = [ "objc/native/src/network_monitor_observer.h" ]
++
++        deps = [
++          "../rtc_base",
++          "../rtc_base:network_constants",
++          "../rtc_base:threading",
++        ]
++      }
++
++      rtc_library("network_monitor_objc") {
++        visibility = [ "*" ]
++
++        sources = [
++          "objc/components/network/RTCNetworkMonitor+Private.h",
++          "objc/components/network/RTCNetworkMonitor.h",
++          "objc/components/network/RTCNetworkMonitor.mm",
++        ]
++
++        configs += [ ":used_from_extension" ]
++
++        frameworks = [ "Network.framework" ]
++
++        deps = [
++          ":base_objc",
++          ":helpers_objc",
++          ":network_monitor_observer",
++          "../rtc_base/system:gcd_helpers",
++        ]
++      }      
++    }
++
+     rtc_library("videosource_objc") {
+       sources = [
+         "objc/api/peerconnection/RTCVideoSource+Private.h",
+@@ -867,2 +987,5 @@ if (is_ios || is_mac) {
+       sources = [
 +        "objc/api/peerconnection/RTCAudioDeviceModule.h",
 +        "objc/api/peerconnection/RTCAudioDeviceModule.mm",
 +        "objc/api/peerconnection/RTCAudioDeviceModule+Private.h",
-+      ]
-+
-       configs += [
-@@ -1245,2 +1278,3 @@ if (is_ios || is_mac) {
+         "objc/api/peerconnection/RTCAudioSource+Private.h",
+@@ -1017,7 +1043,7 @@ if (is_ios || is_mac) {
+         "../system_wrappers:metrics",
+       ]
+ 
+-      if (is_ios) {
++      if (is_ios || is_mac) {
+         deps += [ ":native_api_audio_device_module" ]
+       }
+     }
+@@ -1258,2 +1385,3 @@ if (is_ios || is_mac) {
            "objc/helpers/UIDevice+RTCDevice.h",
 +          "objc/api/peerconnection/RTCAudioDeviceModule.h",
            "objc/api/peerconnection/RTCAudioSource.h",
-@@ -1358,2 +1402,3 @@ if (is_ios || is_mac) {
+@@ -1369,2 +1507,3 @@ if (is_ios || is_mac) {
          sources = [
 +          "objc/api/peerconnection/RTCAudioDeviceModule.h",
            "objc/api/peerconnection/RTCAudioSource.h",
@@ -455,6 +597,31 @@ index f51714ce1d..5d799d7da4 100644
 +      return false;
 +    }
      if (!ConfigureAudioSessionLocked()) {
+diff --git a/sdk/objc/native/api/audio_device_module.mm b/sdk/objc/native/api/audio_device_module.mm
+index dd95775204..148bdb958b 100644
+--- a/sdk/objc/native/api/audio_device_module.mm
++++ b/sdk/objc/native/api/audio_device_module.mm
+@@ -13,7 +13,11 @@
+ #include "rtc_base/logging.h"
+ #include "rtc_base/ref_counted_object.h"
+ 
++#if defined(WEBRTC_IOS)
+ #include "sdk/objc/native/src/audio/audio_device_module_ios.h"
++#elif defined(WEBRTC_MAC)
++#include "sdk/objc/native/src/audio/audio_device_module_mac.h"
++#endif
+ 
+ namespace webrtc {
+ 
+@@ -21,6 +25,8 @@
+   RTC_DLOG(INFO) << __FUNCTION__;
+ #if defined(WEBRTC_IOS)
+   return new rtc::RefCountedObject<ios_adm::AudioDeviceModuleIOS>(bypass_voice_processing);
++#elif defined(WEBRTC_MAC)
++  return new rtc::RefCountedObject<mac_adm::AudioDeviceModuleMac>(bypass_voice_processing);
+ #else
+   RTC_LOG(LERROR)
+       << "current platform is not supported => this module will self destruct!";
 diff --git a/sdk/objc/native/src/audio/audio_device_module_ios.h b/sdk/objc/native/src/audio/audio_device_module_ios.h
 index 9bcf114e32..075f3ac664 100644
 --- a/sdk/objc/native/src/audio/audio_device_module_ios.h
@@ -508,6 +675,847 @@ index 859442dc9e..e5c9a7ea3e 100644
 +  }
 +
    int AudioDeviceModuleIOS::GetPlayoutAudioParameters(
+diff --git a/sdk/objc/native/src/audio/audio_device_module_mac.h b/sdk/objc/native/src/audio/audio_device_module_mac.h
+new file mode 100644
+index 0000000000..cc51dcc85e
+--- /dev/null
++++ b/sdk/objc/native/src/audio/audio_device_module_mac.h
+@@ -0,0 +1,153 @@
++/*
++ *  Copyright (c) 2012 The WebRTC project authors. All Rights Reserved.
++ *
++ *  Use of this source code is governed by a BSD-style license
++ *  that can be found in the LICENSE file in the root of the source
++ *  tree. An additional intellectual property rights grant can be found
++ *  in the file PATENTS.  All contributing project authors may
++ *  be found in the AUTHORS file in the root of the source tree.
++ */
++
++#ifndef SDK_OBJC_NATIVE_SRC_AUDIO_AUDIO_DEVICE_MODULE_MAC_H_
++#define SDK_OBJC_NATIVE_SRC_AUDIO_AUDIO_DEVICE_MODULE_MAC_H_
++
++#include <memory>
++
++#include "modules/audio_device/mac/audio_device_mac.h"
++
++#include "api/task_queue/task_queue_factory.h"
++#include "modules/audio_device/audio_device_buffer.h"
++#include "modules/audio_device/include/audio_device.h"
++#include "rtc_base/checks.h"
++
++#if defined(WEBRTC_IOS)
++#include <CoreMedia/CoreMedia.h>
++#endif
++
++namespace webrtc {
++
++class AudioDeviceGeneric;
++
++namespace mac_adm {
++
++class AudioDeviceModuleMac : public AudioDeviceModule {
++ public:
++  int32_t AttachAudioBuffer();
++
++  explicit AudioDeviceModuleMac(bool bypass_voice_processing);
++  ~AudioDeviceModuleMac() override;
++
++  // Retrieve the currently utilized audio layer
++  int32_t ActiveAudioLayer(AudioLayer* audioLayer) const override;
++
++  // Full-duplex transportation of PCM audio
++  int32_t RegisterAudioCallback(AudioTransport* audioCallback) override;
++
++  // Main initializaton and termination
++  int32_t Init() override;
++  int32_t Terminate() override;
++  bool Initialized() const override;
++
++  // Device enumeration
++  int16_t PlayoutDevices() override;
++  int16_t RecordingDevices() override;
++  int32_t PlayoutDeviceName(uint16_t index,
++                            char name[kAdmMaxDeviceNameSize],
++                            char guid[kAdmMaxGuidSize]) override;
++  int32_t RecordingDeviceName(uint16_t index,
++                              char name[kAdmMaxDeviceNameSize],
++                              char guid[kAdmMaxGuidSize]) override;
++
++  // Device selection
++  int32_t SetPlayoutDevice(uint16_t index) override;
++  int32_t SetPlayoutDevice(WindowsDeviceType device) override;
++  int32_t SetRecordingDevice(uint16_t index) override;
++  int32_t SetRecordingDevice(WindowsDeviceType device) override;
++
++  // Audio transport initialization
++  int32_t PlayoutIsAvailable(bool* available) override;
++  int32_t InitPlayout() override;
++  bool PlayoutIsInitialized() const override;
++  int32_t RecordingIsAvailable(bool* available) override;
++  int32_t InitRecording() override;
++  bool RecordingIsInitialized() const override;
++
++  // Audio transport control
++  int32_t StartPlayout() override;
++  int32_t StopPlayout() override;
++  bool Playing() const override;
++  int32_t StartRecording() override;
++  int32_t StopRecording() override;
++  bool Recording() const override;
++
++  // Audio mixer initialization
++  int32_t InitSpeaker() override;
++  bool SpeakerIsInitialized() const override;
++  int32_t InitMicrophone() override;
++  bool MicrophoneIsInitialized() const override;
++
++  // Speaker volume controls
++  int32_t SpeakerVolumeIsAvailable(bool* available) override;
++  int32_t SetSpeakerVolume(uint32_t volume) override;
++  int32_t SpeakerVolume(uint32_t* volume) const override;
++  int32_t MaxSpeakerVolume(uint32_t* maxVolume) const override;
++  int32_t MinSpeakerVolume(uint32_t* minVolume) const override;
++
++  // Microphone volume controls
++  int32_t MicrophoneVolumeIsAvailable(bool* available) override;
++  int32_t SetMicrophoneVolume(uint32_t volume) override;
++  int32_t MicrophoneVolume(uint32_t* volume) const override;
++  int32_t MaxMicrophoneVolume(uint32_t* maxVolume) const override;
++  int32_t MinMicrophoneVolume(uint32_t* minVolume) const override;
++
++  // Speaker mute control
++  int32_t SpeakerMuteIsAvailable(bool* available) override;
++  int32_t SetSpeakerMute(bool enable) override;
++  int32_t SpeakerMute(bool* enabled) const override;
++
++  // Microphone mute control
++  int32_t MicrophoneMuteIsAvailable(bool* available) override;
++  int32_t SetMicrophoneMute(bool enable) override;
++  int32_t MicrophoneMute(bool* enabled) const override;
++
++  // Stereo support
++  int32_t StereoPlayoutIsAvailable(bool* available) const override;
++  int32_t SetStereoPlayout(bool enable) override;
++  int32_t StereoPlayout(bool* enabled) const override;
++  int32_t StereoRecordingIsAvailable(bool* available) const override;
++  int32_t SetStereoRecording(bool enable) override;
++  int32_t StereoRecording(bool* enabled) const override;
++
++  // Delay information and control
++  int32_t PlayoutDelay(uint16_t* delayMS) const override;
++
++  bool BuiltInAECIsAvailable() const override;
++  int32_t EnableBuiltInAEC(bool enable) override;
++  bool BuiltInAGCIsAvailable() const override;
++  int32_t EnableBuiltInAGC(bool enable) override;
++  bool BuiltInNSIsAvailable() const override;
++  int32_t EnableBuiltInNS(bool enable) override;
++
++  int32_t GetPlayoutUnderrunCount() const override;
++
++#if defined(WEBRTC_IOS)
++  void OnDeliverRecordedExternalData(CMSampleBufferRef sample_buffer);
++  OSType GetAudioUnitSubType() const;
++  void SetAudioUnitSubType(OSType sub_type);
++  int GetPlayoutAudioParameters(AudioParameters* params) const override;
++  int GetRecordAudioParameters(AudioParameters* params) const override;
++#endif  // WEBRTC_IOS
++ private:
++  bool initialized_ = false;
++  const std::unique_ptr<TaskQueueFactory> task_queue_factory_;
++  std::unique_ptr<AudioDeviceMac> audio_device_;
++  std::unique_ptr<AudioDeviceBuffer> audio_device_buffer_;
++
++#if defined(WEBRTC_IOS)
++  OSType audio_unit_sub_type_ = kAudioUnitSubType_VoiceProcessingIO;
++#endif // WEBRTC_IOS
++};
++}  // namespace mac_adm
++}  // namespace webrtc
++
++#endif  // SDK_OBJC_NATIVE_SRC_AUDIO_AUDIO_DEVICE_MODULE_MAC_H_
+diff --git a/sdk/objc/native/src/audio/audio_device_module_mac.mm b/sdk/objc/native/src/audio/audio_device_module_mac.mm
+new file mode 100644
+index 0000000000..1afecb9b26
+--- /dev/null
++++ b/sdk/objc/native/src/audio/audio_device_module_mac.mm
+@@ -0,0 +1,676 @@
++/*
++ *  Copyright (c) 2012 The WebRTC project authors. All Rights Reserved.
++ *
++ *  Use of this source code is governed by a BSD-style license
++ *  that can be found in the LICENSE file in the root of the source
++ *  tree. An additional intellectual property rights grant can be found
++ *  in the file PATENTS.  All contributing project authors may
++ *  be found in the AUTHORS file in the root of the source tree.
++ */
++
++#include "audio_device_module_mac.h"
++
++#include "api/task_queue/default_task_queue_factory.h"
++#include "modules/audio_device/audio_device_config.h"
++#include "modules/audio_device/audio_device_generic.h"
++#include "rtc_base/checks.h"
++#include "rtc_base/logging.h"
++#include "rtc_base/ref_count.h"
++#include "rtc_base/ref_counted_object.h"
++#include "system_wrappers/include/metrics.h"
++
++#if defined(WEBRTC_MAC)
++#include "modules/audio_device/mac/audio_device_mac.h"
++#endif
++
++#define CHECKinitialized_() \
++  {                         \
++    if (!initialized_) {    \
++      return -1;            \
++    };                      \
++  }
++
++#define CHECKinitialized__BOOL() \
++  {                              \
++    if (!initialized_) {         \
++      return false;              \
++    };                           \
++  }
++
++namespace webrtc {
++namespace mac_adm {
++
++AudioDeviceModuleMac::AudioDeviceModuleMac(bool bypass_voice_processing)
++    : task_queue_factory_(CreateDefaultTaskQueueFactory()) {
++  RTC_LOG(INFO) << "current platform is macOS";
++  RTC_LOG(INFO) << "macOS Audio APIs will be utilized.";
++}
++
++  int32_t AudioDeviceModuleMac::AttachAudioBuffer() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    audio_device_->AttachAudioBuffer(audio_device_buffer_.get());
++    return 0;
++  }
++
++  AudioDeviceModuleMac::~AudioDeviceModuleMac() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++  }
++
++  int32_t AudioDeviceModuleMac::ActiveAudioLayer(AudioLayer* audioLayer) const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    AudioLayer activeAudio;
++    if (audio_device_->ActiveAudioLayer(activeAudio) == -1) {
++      return -1;
++    }
++    *audioLayer = activeAudio;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::Init() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    if (initialized_)
++      return 0;
++
++    audio_device_buffer_.reset(new webrtc::AudioDeviceBuffer(task_queue_factory_.get()));
++    audio_device_.reset(new webrtc::AudioDeviceMac());
++    RTC_CHECK(audio_device_);
++
++    // audio_device_->audio_unit_sub_type = audio_unit_sub_type_;
++
++    this->AttachAudioBuffer();
++
++    AudioDeviceGeneric::InitStatus status = audio_device_->Init();
++    RTC_HISTOGRAM_ENUMERATION(
++        "WebRTC.Audio.InitializationResult", static_cast<int>(status),
++        static_cast<int>(AudioDeviceGeneric::InitStatus::NUM_STATUSES));
++    if (status != AudioDeviceGeneric::InitStatus::OK) {
++      RTC_LOG(LS_ERROR) << "Audio device initialization failed.";
++      return -1;
++    }
++    initialized_ = true;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::Terminate() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    if (!initialized_)
++      return 0;
++    if (audio_device_->Terminate() == -1) {
++      return -1;
++    }
++    initialized_ = false;
++    return 0;
++  }
++
++  bool AudioDeviceModuleMac::Initialized() const {
++    RTC_DLOG(INFO) << __FUNCTION__ << ": " << initialized_;
++    return initialized_;
++  }
++
++  int32_t AudioDeviceModuleMac::InitSpeaker() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    return audio_device_->InitSpeaker();
++  }
++
++  int32_t AudioDeviceModuleMac::InitMicrophone() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    return audio_device_->InitMicrophone();
++  }
++
++  int32_t AudioDeviceModuleMac::SpeakerVolumeIsAvailable(bool* available) {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool isAvailable = false;
++    if (audio_device_->SpeakerVolumeIsAvailable(isAvailable) == -1) {
++      return -1;
++    }
++    *available = isAvailable;
++    RTC_DLOG(INFO) << "output: " << isAvailable;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::SetSpeakerVolume(uint32_t volume) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << volume << ")";
++    CHECKinitialized_();
++    return audio_device_->SetSpeakerVolume(volume);
++  }
++
++  int32_t AudioDeviceModuleMac::SpeakerVolume(uint32_t* volume) const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    uint32_t level = 0;
++    if (audio_device_->SpeakerVolume(level) == -1) {
++      return -1;
++    }
++    *volume = level;
++    RTC_DLOG(INFO) << "output: " << *volume;
++    return 0;
++  }
++
++  bool AudioDeviceModuleMac::SpeakerIsInitialized() const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized__BOOL();
++    bool isInitialized = audio_device_->SpeakerIsInitialized();
++    RTC_DLOG(INFO) << "output: " << isInitialized;
++    return isInitialized;
++  }
++
++  bool AudioDeviceModuleMac::MicrophoneIsInitialized() const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized__BOOL();
++    bool isInitialized = audio_device_->MicrophoneIsInitialized();
++    RTC_DLOG(INFO) << "output: " << isInitialized;
++    return isInitialized;
++  }
++
++  int32_t AudioDeviceModuleMac::MaxSpeakerVolume(uint32_t* maxVolume) const {
++    CHECKinitialized_();
++    uint32_t maxVol = 0;
++    if (audio_device_->MaxSpeakerVolume(maxVol) == -1) {
++      return -1;
++    }
++    *maxVolume = maxVol;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::MinSpeakerVolume(uint32_t* minVolume) const {
++    CHECKinitialized_();
++    uint32_t minVol = 0;
++    if (audio_device_->MinSpeakerVolume(minVol) == -1) {
++      return -1;
++    }
++    *minVolume = minVol;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::SpeakerMuteIsAvailable(bool* available) {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool isAvailable = false;
++    if (audio_device_->SpeakerMuteIsAvailable(isAvailable) == -1) {
++      return -1;
++    }
++    *available = isAvailable;
++    RTC_DLOG(INFO) << "output: " << isAvailable;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::SetSpeakerMute(bool enable) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << enable << ")";
++    CHECKinitialized_();
++    return audio_device_->SetSpeakerMute(enable);
++  }
++
++  int32_t AudioDeviceModuleMac::SpeakerMute(bool* enabled) const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool muted = false;
++    if (audio_device_->SpeakerMute(muted) == -1) {
++      return -1;
++    }
++    *enabled = muted;
++    RTC_DLOG(INFO) << "output: " << muted;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::MicrophoneMuteIsAvailable(bool* available) {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool isAvailable = false;
++    if (audio_device_->MicrophoneMuteIsAvailable(isAvailable) == -1) {
++      return -1;
++    }
++    *available = isAvailable;
++    RTC_DLOG(INFO) << "output: " << isAvailable;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::SetMicrophoneMute(bool enable) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << enable << ")";
++    CHECKinitialized_();
++    return (audio_device_->SetMicrophoneMute(enable));
++  }
++
++  int32_t AudioDeviceModuleMac::MicrophoneMute(bool* enabled) const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool muted = false;
++    if (audio_device_->MicrophoneMute(muted) == -1) {
++      return -1;
++    }
++    *enabled = muted;
++    RTC_DLOG(INFO) << "output: " << muted;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::MicrophoneVolumeIsAvailable(bool* available) {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool isAvailable = false;
++    if (audio_device_->MicrophoneVolumeIsAvailable(isAvailable) == -1) {
++      return -1;
++    }
++    *available = isAvailable;
++    RTC_DLOG(INFO) << "output: " << isAvailable;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::SetMicrophoneVolume(uint32_t volume) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << volume << ")";
++    CHECKinitialized_();
++    return (audio_device_->SetMicrophoneVolume(volume));
++  }
++
++  int32_t AudioDeviceModuleMac::MicrophoneVolume(uint32_t* volume) const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    uint32_t level = 0;
++    if (audio_device_->MicrophoneVolume(level) == -1) {
++      return -1;
++    }
++    *volume = level;
++    RTC_DLOG(INFO) << "output: " << *volume;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::StereoRecordingIsAvailable(
++      bool* available) const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool isAvailable = false;
++    if (audio_device_->StereoRecordingIsAvailable(isAvailable) == -1) {
++      return -1;
++    }
++    *available = isAvailable;
++    RTC_DLOG(INFO) << "output: " << isAvailable;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::SetStereoRecording(bool enable) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << enable << ")";
++    CHECKinitialized_();
++    if (enable) {
++      RTC_LOG(WARNING) << "recording in stereo is not supported";
++    }
++    return -1;
++  }
++
++  int32_t AudioDeviceModuleMac::StereoRecording(bool* enabled) const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool stereo = false;
++    if (audio_device_->StereoRecording(stereo) == -1) {
++      return -1;
++    }
++    *enabled = stereo;
++    RTC_DLOG(INFO) << "output: " << stereo;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::StereoPlayoutIsAvailable(bool* available) const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool isAvailable = false;
++    if (audio_device_->StereoPlayoutIsAvailable(isAvailable) == -1) {
++      return -1;
++    }
++    *available = isAvailable;
++    RTC_DLOG(INFO) << "output: " << isAvailable;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::SetStereoPlayout(bool enable) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << enable << ")";
++    CHECKinitialized_();
++    if (audio_device_->PlayoutIsInitialized()) {
++      RTC_LOG(LERROR)
++      << "unable to set stereo mode while playing side is initialized";
++      return -1;
++    }
++    if (audio_device_->SetStereoPlayout(enable)) {
++      RTC_LOG(WARNING) << "stereo playout is not supported";
++      return -1;
++    }
++    int8_t nChannels(1);
++    if (enable) {
++      nChannels = 2;
++    }
++    audio_device_buffer_.get()->SetPlayoutChannels(nChannels);
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::StereoPlayout(bool* enabled) const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool stereo = false;
++    if (audio_device_->StereoPlayout(stereo) == -1) {
++      return -1;
++    }
++    *enabled = stereo;
++    RTC_DLOG(INFO) << "output: " << stereo;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::PlayoutIsAvailable(bool* available) {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool isAvailable = false;
++    if (audio_device_->PlayoutIsAvailable(isAvailable) == -1) {
++      return -1;
++    }
++    *available = isAvailable;
++    RTC_DLOG(INFO) << "output: " << isAvailable;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::RecordingIsAvailable(bool* available) {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    bool isAvailable = false;
++    if (audio_device_->RecordingIsAvailable(isAvailable) == -1) {
++      return -1;
++    }
++    *available = isAvailable;
++    RTC_DLOG(INFO) << "output: " << isAvailable;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::MaxMicrophoneVolume(uint32_t* maxVolume) const {
++    CHECKinitialized_();
++    uint32_t maxVol(0);
++    if (audio_device_->MaxMicrophoneVolume(maxVol) == -1) {
++      return -1;
++    }
++    *maxVolume = maxVol;
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::MinMicrophoneVolume(uint32_t* minVolume) const {
++    CHECKinitialized_();
++    uint32_t minVol(0);
++    if (audio_device_->MinMicrophoneVolume(minVol) == -1) {
++      return -1;
++    }
++    *minVolume = minVol;
++    return 0;
++  }
++
++  int16_t AudioDeviceModuleMac::PlayoutDevices() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    uint16_t nPlayoutDevices = audio_device_->PlayoutDevices();
++    RTC_DLOG(INFO) << "output: " << nPlayoutDevices;
++    return (int16_t)(nPlayoutDevices);
++  }
++
++  int32_t AudioDeviceModuleMac::SetPlayoutDevice(uint16_t index) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << index << ")";
++    CHECKinitialized_();
++    return audio_device_->SetPlayoutDevice(index);
++  }
++
++  int32_t AudioDeviceModuleMac::SetPlayoutDevice(WindowsDeviceType device) {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    return audio_device_->SetPlayoutDevice(device);
++  }
++
++  int32_t AudioDeviceModuleMac::PlayoutDeviceName(
++      uint16_t index,
++      char name[kAdmMaxDeviceNameSize],
++      char guid[kAdmMaxGuidSize]) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << index << ", ...)";
++    CHECKinitialized_();
++    if (name == NULL) {
++      return -1;
++    }
++    if (audio_device_->PlayoutDeviceName(index, name, guid) == -1) {
++      return -1;
++    }
++    if (name != NULL) {
++      RTC_DLOG(INFO) << "output: name = " << name;
++    }
++    if (guid != NULL) {
++      RTC_DLOG(INFO) << "output: guid = " << guid;
++    }
++    return 0;
++  }
++
++  int32_t AudioDeviceModuleMac::RecordingDeviceName(
++      uint16_t index,
++      char name[kAdmMaxDeviceNameSize],
++      char guid[kAdmMaxGuidSize]) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << index << ", ...)";
++    CHECKinitialized_();
++    if (name == NULL) {
++      return -1;
++    }
++    if (audio_device_->RecordingDeviceName(index, name, guid) == -1) {
++      return -1;
++    }
++    if (name != NULL) {
++      RTC_DLOG(INFO) << "output: name = " << name;
++    }
++    if (guid != NULL) {
++      RTC_DLOG(INFO) << "output: guid = " << guid;
++    }
++    return 0;
++  }
++
++  int16_t AudioDeviceModuleMac::RecordingDevices() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    uint16_t nRecordingDevices = audio_device_->RecordingDevices();
++    RTC_DLOG(INFO) << "output: " << nRecordingDevices;
++    return (int16_t)nRecordingDevices;
++  }
++
++  int32_t AudioDeviceModuleMac::SetRecordingDevice(uint16_t index) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << index << ")";
++    CHECKinitialized_();
++    return audio_device_->SetRecordingDevice(index);
++  }
++
++  int32_t AudioDeviceModuleMac::SetRecordingDevice(WindowsDeviceType device) {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    return audio_device_->SetRecordingDevice(device);
++  }
++
++  int32_t AudioDeviceModuleMac::InitPlayout() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    if (PlayoutIsInitialized()) {
++      return 0;
++    }
++    int32_t result = audio_device_->InitPlayout();
++    RTC_DLOG(INFO) << "output: " << result;
++    RTC_HISTOGRAM_BOOLEAN("WebRTC.Audio.InitPlayoutSuccess",
++                          static_cast<int>(result == 0));
++    return result;
++  }
++
++  int32_t AudioDeviceModuleMac::InitRecording() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    if (RecordingIsInitialized()) {
++      return 0;
++    }
++    int32_t result = audio_device_->InitRecording();
++    RTC_DLOG(INFO) << "output: " << result;
++    RTC_HISTOGRAM_BOOLEAN("WebRTC.Audio.InitRecordingSuccess",
++                          static_cast<int>(result == 0));
++    return result;
++  }
++
++  bool AudioDeviceModuleMac::PlayoutIsInitialized() const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized__BOOL();
++    return audio_device_->PlayoutIsInitialized();
++  }
++
++  bool AudioDeviceModuleMac::RecordingIsInitialized() const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized__BOOL();
++    return audio_device_->RecordingIsInitialized();
++  }
++
++  int32_t AudioDeviceModuleMac::StartPlayout() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    if (Playing()) {
++      return 0;
++    }
++    audio_device_buffer_.get()->StartPlayout();
++    int32_t result = audio_device_->StartPlayout();
++    RTC_DLOG(INFO) << "output: " << result;
++    RTC_HISTOGRAM_BOOLEAN("WebRTC.Audio.StartPlayoutSuccess",
++                          static_cast<int>(result == 0));
++    return result;
++  }
++
++  int32_t AudioDeviceModuleMac::StopPlayout() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    int32_t result = audio_device_->StopPlayout();
++    audio_device_buffer_.get()->StopPlayout();
++    RTC_DLOG(INFO) << "output: " << result;
++    RTC_HISTOGRAM_BOOLEAN("WebRTC.Audio.StopPlayoutSuccess",
++                          static_cast<int>(result == 0));
++    return result;
++  }
++
++  bool AudioDeviceModuleMac::Playing() const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized__BOOL();
++    return audio_device_->Playing();
++  }
++
++  int32_t AudioDeviceModuleMac::StartRecording() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    if (Recording()) {
++      return 0;
++    }
++    audio_device_buffer_.get()->StartRecording();
++    int32_t result = audio_device_->StartRecording();
++    RTC_DLOG(INFO) << "output: " << result;
++    RTC_HISTOGRAM_BOOLEAN("WebRTC.Audio.StartRecordingSuccess",
++                          static_cast<int>(result == 0));
++    return result;
++  }
++
++  int32_t AudioDeviceModuleMac::StopRecording() {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized_();
++    int32_t result = audio_device_->StopRecording();
++    audio_device_buffer_.get()->StopRecording();
++    RTC_DLOG(INFO) << "output: " << result;
++    RTC_HISTOGRAM_BOOLEAN("WebRTC.Audio.StopRecordingSuccess",
++                          static_cast<int>(result == 0));
++    return result;
++  }
++
++  bool AudioDeviceModuleMac::Recording() const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized__BOOL();
++    return audio_device_->Recording();
++  }
++
++  int32_t AudioDeviceModuleMac::RegisterAudioCallback(
++      AudioTransport* audioCallback) {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    return audio_device_buffer_.get()->RegisterAudioCallback(audioCallback);
++  }
++
++  int32_t AudioDeviceModuleMac::PlayoutDelay(uint16_t* delayMS) const {
++    CHECKinitialized_();
++    uint16_t delay = 0;
++    if (audio_device_->PlayoutDelay(delay) == -1) {
++      RTC_LOG(LERROR) << "failed to retrieve the playout delay";
++      return -1;
++    }
++    *delayMS = delay;
++    return 0;
++  }
++
++  bool AudioDeviceModuleMac::BuiltInAECIsAvailable() const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized__BOOL();
++    bool isAvailable = audio_device_->BuiltInAECIsAvailable();
++    RTC_DLOG(INFO) << "output: " << isAvailable;
++    return isAvailable;
++  }
++
++  int32_t AudioDeviceModuleMac::EnableBuiltInAEC(bool enable) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << enable << ")";
++    CHECKinitialized_();
++    int32_t ok = audio_device_->EnableBuiltInAEC(enable);
++    RTC_DLOG(INFO) << "output: " << ok;
++    return ok;
++  }
++
++  bool AudioDeviceModuleMac::BuiltInAGCIsAvailable() const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized__BOOL();
++    bool isAvailable = audio_device_->BuiltInAGCIsAvailable();
++    RTC_DLOG(INFO) << "output: " << isAvailable;
++    return isAvailable;
++  }
++
++  int32_t AudioDeviceModuleMac::EnableBuiltInAGC(bool enable) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << enable << ")";
++    CHECKinitialized_();
++    int32_t ok = audio_device_->EnableBuiltInAGC(enable);
++    RTC_DLOG(INFO) << "output: " << ok;
++    return ok;
++  }
++
++  bool AudioDeviceModuleMac::BuiltInNSIsAvailable() const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    CHECKinitialized__BOOL();
++    bool isAvailable = audio_device_->BuiltInNSIsAvailable();
++    RTC_DLOG(INFO) << "output: " << isAvailable;
++    return isAvailable;
++  }
++
++  int32_t AudioDeviceModuleMac::EnableBuiltInNS(bool enable) {
++    RTC_DLOG(INFO) << __FUNCTION__ << "(" << enable << ")";
++    CHECKinitialized_();
++    int32_t ok = audio_device_->EnableBuiltInNS(enable);
++    RTC_DLOG(INFO) << "output: " << ok;
++    return ok;
++  }
++
++  int32_t AudioDeviceModuleMac::GetPlayoutUnderrunCount() const {
++    // Don't log here, as this method can be called very often.
++    CHECKinitialized_();
++    int32_t ok = audio_device_->GetPlayoutUnderrunCount();
++    return ok;
++  }
++
++#if defined(WEBRTC_IOS)
++  void AudioDeviceModuleMac::OnDeliverRecordedExternalData(CMSampleBufferRef sample_buffer) {
++    audio_device_->OnDeliverRecordedExternalData(sample_buffer);
++  }
++
++  int AudioDeviceModuleMac::GetPlayoutAudioParameters(
++      AudioParameters* params) const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    int r = audio_device_->GetPlayoutAudioParameters(params);
++    RTC_DLOG(INFO) << "output: " << r;
++    return r;
++  }
++
++  int AudioDeviceModuleMac::GetRecordAudioParameters(
++      AudioParameters* params) const {
++    RTC_DLOG(INFO) << __FUNCTION__;
++    int r = audio_device_->GetRecordAudioParameters(params);
++    RTC_DLOG(INFO) << "output: " << r;
++    return r;
++  }
++#endif  // WEBRTC_IOS
++}
++}
 diff --git a/tools_webrtc/libs/generate_licenses.py b/tools_webrtc/libs/generate_licenses.py
 index a23123e760..36aae5964d 100755
 --- a/tools_webrtc/libs/generate_licenses.py
