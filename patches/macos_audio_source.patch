@@ -42,12 +42,71 @@ index 0000000000..bd5f40fec7
 +@end
 +
 +NS_ASSUME_NONNULL_END
+diff --git a/sdk/objc/api/peerconnection/RTCAudioDevice.h b/sdk/objc/api/peerconnection/RTCAudioDevice.h
+new file mode 100644
+index 0000000000..5e5eb833f2
+--- /dev/null
++++ b/sdk/objc/api/peerconnection/RTCAudioDevice.h
+@@ -0,0 +1,27 @@
++#import <Foundation/Foundation.h>
++
++#import "RTCMacros.h"
++
++NS_ASSUME_NONNULL_BEGIN
++
++RTC_OBJC_EXPORT
++
++@interface RTCAudioDevice : NSObject {
++  NSString *deviceName;
++  NSString *uniqueId;
++  int index;
++}
++
++@property(nonatomic, copy) NSString *deviceName;
++
++@property(nonatomic, copy) NSString *uniqueId;
++
++@property int index;
++
++- (instancetype)initWithDeviceName:(NSString *)deviceName
++                          uniqueId: (NSString *)uniqueId
++                            index: (uint16_t)index;
++
++@end
++
++NS_ASSUME_NONNULL_END
+diff --git a/sdk/objc/api/peerconnection/RTCAudioDevice.mm b/sdk/objc/api/peerconnection/RTCAudioDevice.mm
+new file mode 100644
+index 0000000000..09224225fd
+--- /dev/null
++++ b/sdk/objc/api/peerconnection/RTCAudioDevice.mm
+@@ -0,0 +1,20 @@
++#import "RTCAudioDevice.h"
++
++@implementation RTCAudioDevice : NSObject
++
++@synthesize deviceName = _deviceName;
++@synthesize uniqueId = _uniqueId;
++@synthesize index = _index;
++
++- (instancetype)initWithDeviceName:(NSString *)deviceName
++                          uniqueId: (NSString *)uniqueId
++                            index: (uint16_t)index {
++    if (self = [super init]) {
++        _deviceName = deviceName;
++        _uniqueId = uniqueId;
++        _index = index;
++    }
++    return self;
++}
++
++@end
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
 new file mode 100644
-index 0000000000..5310b59fb6
+index 0000000000..f68cf72cb8
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,106 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -59,6 +118,7 @@ index 0000000000..5310b59fb6
 +#import <Foundation/Foundation.h>
 +
 +#import "RTCMacros.h"
++#import "RTCAudioDevice.h"
 +
 +NS_ASSUME_NONNULL_BEGIN
 +
@@ -78,6 +138,10 @@ index 0000000000..5310b59fb6
 +// Device selection
 +- (int32_t) setPlayoutDevice:(uint16_t)index;
 +- (int32_t) setRecordingDevice:(uint16_t)index;
++- (RTCAudioDevice *) playoutDeviceName:(uint16_t)index;
++- (RTCAudioDevice *) recordingDeviceName:(uint16_t)index;
++- (NSArray<RTCAudioDevice *>*) playoutDeviceList;
++- (NSArray<RTCAudioDevice *>*) recordingDeviceList;
 +
 +// Audio transport initialization
 +- (bool) playoutIsAvailable;
@@ -152,10 +216,10 @@ index 0000000000..5310b59fb6
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
 new file mode 100644
-index 0000000000..4f97f05312
+index 0000000000..74e80a1e55
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
-@@ -0,0 +1,310 @@
+@@ -0,0 +1,350 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -167,7 +231,7 @@ index 0000000000..4f97f05312
 +
 +#import "RTCAudioDeviceModule+Private.h"
 +
-+// #include "modules/audio_device/audio_device_generic.h"
++#include "modules/audio_device/audio_device_generic.h"
 +#include "rtc_base/ref_counted_object.h"
 +
 +@implementation RTCAudioDeviceModule {
@@ -208,6 +272,46 @@ index 0000000000..4f97f05312
 +
 +- (uint16_t) recordingDevices {
 +  return _nativeModule->RecordingDevices();
++}
++
++- (RTCAudioDevice *) playoutDeviceName:(uint16_t)index {
++  char deviceName[webrtc::kAdmMaxDeviceNameSize];
++  char uniqueId[webrtc::kAdmMaxGuidSize];
++  _nativeModule->PlayoutDeviceName(index, deviceName, uniqueId);
++  NSString *name = [NSString stringWithUTF8String: deviceName];
++  NSString *uid = [NSString stringWithUTF8String: uniqueId];
++  return [[RTCAudioDevice alloc] initWithDeviceName:name
++                                           uniqueId:uid
++                                              index:index];
++}
++
++- (RTCAudioDevice *) recordingDeviceName:(uint16_t)index {
++  char deviceName[webrtc::kAdmMaxDeviceNameSize];
++  char uniqueId[webrtc::kAdmMaxGuidSize];
++  _nativeModule->RecordingDeviceName(index, deviceName, uniqueId);
++  NSString *name = [NSString stringWithUTF8String: deviceName];
++  NSString *uid = [NSString stringWithUTF8String: uniqueId];
++  return [[RTCAudioDevice alloc] initWithDeviceName:name
++                                           uniqueId:uid
++                                              index:index];
++}
++
++- (NSArray<RTCAudioDevice *>*) playoutDeviceList {
++  NSMutableArray *devices = [NSMutableArray array];
++  uint16_t deviceNum = [self playoutDevices];
++  for (int i = 0; i < deviceNum; i++) {
++    [devices addObject:[self playoutDeviceName:i]];
++  }
++  return devices;
++}
++
++- (NSArray<RTCAudioDevice *>*) recordingDeviceList {
++  NSMutableArray *devices = [NSMutableArray array];
++  uint16_t deviceNum = [self recordingDevices];
++  for (int i = 0; i < deviceNum; i++) {
++    [devices addObject:[self recordingDeviceName:i]];
++  }
++  return devices;
 +}
 +
 +// Device selection
@@ -732,8 +836,10 @@ index 90e245a18d..72bde9e13b 100644
      rtc_library("videosource_objc") {
        sources = [
          "objc/api/peerconnection/RTCVideoSource+Private.h",
-@@ -867,2 +987,5 @@ if (is_ios || is_mac) {
+@@ -867,2 +987,7 @@ if (is_ios || is_mac) {
        sources = [
++        "objc/api/peerconnection/RTCAudioDevice.h",
++        "objc/api/peerconnection/RTCAudioDevice.mm",
 +        "objc/api/peerconnection/RTCAudioDeviceModule.h",
 +        "objc/api/peerconnection/RTCAudioDeviceModule.mm",
 +        "objc/api/peerconnection/RTCAudioDeviceModule+Private.h",
@@ -747,12 +853,14 @@ index 90e245a18d..72bde9e13b 100644
          deps += [ ":native_api_audio_device_module" ]
        }
      }
-@@ -1258,2 +1385,3 @@ if (is_ios || is_mac) {
+@@ -1258,2 +1384,4 @@ if (is_ios || is_mac) {
            "objc/helpers/UIDevice+RTCDevice.h",
++          "objc/api/peerconnection/RTCAudioDevice.h",
 +          "objc/api/peerconnection/RTCAudioDeviceModule.h",
            "objc/api/peerconnection/RTCAudioSource.h",
-@@ -1369,2 +1507,3 @@ if (is_ios || is_mac) {
+@@ -1369,2 +1507,4 @@ if (is_ios || is_mac) {
          sources = [
++          "objc/api/peerconnection/RTCAudioDevice.h",
 +          "objc/api/peerconnection/RTCAudioDeviceModule.h",
            "objc/api/peerconnection/RTCAudioSource.h",
 diff --git a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h
