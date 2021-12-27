@@ -44,10 +44,10 @@ index 0000000000..bd5f40fec7
 +NS_ASSUME_NONNULL_END
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
 new file mode 100644
-index 0000000000..f157122247
+index 0000000000..5310b59fb6
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,101 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -66,6 +66,81 @@ index 0000000000..f157122247
 +
 +@interface RTCAudioDeviceModule : NSObject
 +
++// Main initializaton and termination
++- (int32_t) initModule;
++- (int32_t) terminateModule;
++- (bool) initialized;
++
++// Device enumeration
++- (uint16_t) playoutDevices;
++- (uint16_t) recordingDevices;
++
++// Device selection
++- (int32_t) setPlayoutDevice:(uint16_t)index;
++- (int32_t) setRecordingDevice:(uint16_t)index;
++
++// Audio transport initialization
++- (bool) playoutIsAvailable;
++- (int32_t) initPlayout;
++- (bool) playoutIsInitialized;
++- (bool) recordingIsAvailable;
++- (int32_t) initRecording;
++- (bool) recordingIsInitialized;
++
++// Audio transport control
++- (int32_t) startPlayout;
++- (int32_t) stopPlayout;
++- (bool) playing;
++- (int32_t) startRecording;
++- (int32_t) stopRecording;
++- (bool) recording;
++
++// Audio mixer initialization
++- (int32_t) initSpeaker;
++- (bool) speakerIsInitialized;
++- (int32_t) initMicrophone;
++- (bool) microphoneIsInitialized;
++
++// Speaker volume controls
++- (bool) speakerVolumeIsAvailable;
++- (int32_t) setSpeakerVolume:(uint32_t)volume;
++- (int32_t) speakerVolume;
++- (int32_t) maxSpeakerVolume;
++- (int32_t) minSpeakerVolume;
++
++// Microphone volume controls
++- (bool) microphoneVolumeIsAvailable;
++- (int32_t) setMicrophoneVolume:(uint32_t)volume;
++- (int32_t) microphoneVolume;
++- (int32_t) maxMicrophoneVolume;
++- (int32_t) minMicrophoneVolume;
++
++// Speaker mute control
++- (bool) speakerMuteIsAvailable;
++- (int32_t) setSpeakerMute:(BOOL)enable;
++- (bool) speakerMute;
++
++// Microphone mute control
++- (bool) microphoneMuteIsAvailable;
++- (int32_t) setMicrophoneMute:(bool)enable;
++- (bool) microphoneMute;
++
++// Stereo support
++- (bool) stereoPlayoutIsAvailable;
++- (int32_t) setStereoPlayout:(bool)enable;
++- (bool) stereoPlayout;
++- (bool) stereoRecordingIsAvailable;
++- (int32_t) setStereoRecording:(bool)enable;
++- (bool) stereoRecording;
++
++// Delay information and control
++- (bool) builtInAECIsAvailable;
++- (int32_t) enableBuiltInAEC:(bool)enable;
++- (bool) builtInAGCIsAvailable;
++- (int32_t) enableBuiltInAGC:(bool)enable;
++- (bool) builtInNSIsAvailable;
++- (int32_t) enableBuiltInNS:(bool)enable;
++
 +#if defined(WEBRTC_IOS)
 +- (void)deliverRecordedData:(CMSampleBufferRef)sampleBuffer;
 +@property(nonatomic, assign) OSType audioUnitSubType;
@@ -77,10 +152,10 @@ index 0000000000..f157122247
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
 new file mode 100644
-index 0000000000..7870edb713
+index 0000000000..4f97f05312
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,310 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -91,6 +166,8 @@ index 0000000000..7870edb713
 +#include <AudioUnit/AudioUnit.h>
 +
 +#import "RTCAudioDeviceModule+Private.h"
++
++// #include "modules/audio_device/audio_device_generic.h"
 +#include "rtc_base/ref_counted_object.h"
 +
 +@implementation RTCAudioDeviceModule {
@@ -111,19 +188,267 @@ index 0000000000..7870edb713
 +  return self;
 +}
 +
++// Main initializaton and termination
++- (int32_t) initModule {
++  return _nativeModule->Init();
++}
++
++- (int32_t) terminateModule {
++  return _nativeModule->Terminate();
++}
++
++- (bool) initialized {
++  return _nativeModule->Initialized();
++}
++
++// Device enumeration
++- (uint16_t) playoutDevices {
++  return _nativeModule->PlayoutDevices();
++}
++
++- (uint16_t) recordingDevices {
++  return _nativeModule->RecordingDevices();
++}
++
++// Device selection
++- (int32_t) setPlayoutDevice:(uint16_t)index {
++  return _nativeModule->SetPlayoutDevice(index);
++}
++
++- (int32_t) setRecordingDevice:(uint16_t)index {
++  return _nativeModule->SetRecordingDevice(index);
++}
++
++// Audio transport initialization
++- (bool) playoutIsAvailable {
++  bool available = false;
++  _nativeModule->PlayoutIsAvailable(&available);
++  return available;
++}
++
++- (int32_t) initPlayout {
++  return _nativeModule->InitPlayout();
++}
++
++- (bool) playoutIsInitialized {
++  return _nativeModule->PlayoutIsInitialized();
++}
++
++- (bool) recordingIsAvailable {
++  bool available = false;
++  _nativeModule->RecordingIsAvailable(&available);
++  return available;
++}
++
++- (int32_t) initRecording {
++  return _nativeModule->InitRecording();
++}
++
++- (bool) recordingIsInitialized {
++  return _nativeModule->RecordingIsInitialized();
++}
++
++// Audio transport control
++- (int32_t) startPlayout {
++  return _nativeModule->StartPlayout();
++}
++
++- (int32_t) stopPlayout {
++  return _nativeModule->StopPlayout();
++}
++
++- (bool) playing {
++  return _nativeModule->Playing();
++}
++
++- (int32_t) startRecording {
++  return _nativeModule->StartRecording();
++}
++
++- (int32_t) stopRecording {
++  return _nativeModule->StopRecording();
++}
++
++- (bool) recording {
++  return _nativeModule->Recording();
++}
++
++// Audio mixer initialization
++- (int32_t) initSpeaker {
++  return _nativeModule->InitSpeaker();
++}
++
++- (bool) speakerIsInitialized {
++  return _nativeModule->SpeakerIsInitialized();
++}
++
++- (int32_t) initMicrophone {
++  return _nativeModule->InitMicrophone();
++}
++
++- (bool) microphoneIsInitialized {
++  return _nativeModule->MicrophoneIsInitialized();
++}
++
++// Speaker volume controls
++- (bool) speakerVolumeIsAvailable {
++  bool available = false;
++  _nativeModule->SpeakerVolumeIsAvailable(&available);
++  return available;
++}
++
++- (int32_t) setSpeakerVolume:(uint32_t)volume {
++  return _nativeModule->SetSpeakerVolume(volume);
++}
++
++- (int32_t) speakerVolume {
++  uint32_t volume(0);
++  _nativeModule->SpeakerVolume(&volume);
++  return volume;
++}
++
++- (int32_t) maxSpeakerVolume {
++  uint32_t maxVolume(0);
++  _nativeModule->MaxSpeakerVolume(&maxVolume);
++  return maxVolume;
++}
++
++- (int32_t) minSpeakerVolume {
++  uint32_t minVolume(0);
++  _nativeModule->MinSpeakerVolume(&minVolume);
++  return minVolume;
++}
++
++// Microphone volume controls
++- (bool) microphoneVolumeIsAvailable {
++  bool available = false;
++  _nativeModule->MicrophoneVolumeIsAvailable(&available);
++  return available;
++}
++
++- (int32_t) setMicrophoneVolume:(uint32_t)volume {
++  return _nativeModule->SetMicrophoneVolume(volume);
++}
++
++- (int32_t) microphoneVolume {
++  uint32_t volume(0);
++  _nativeModule->MicrophoneVolume(&volume);
++  return volume;
++}
++
++- (int32_t) maxMicrophoneVolume {
++  uint32_t maxVolume(0);
++  _nativeModule->MaxMicrophoneVolume(&maxVolume);
++  return maxVolume;
++}
++
++- (int32_t) minMicrophoneVolume {
++  uint32_t minVolume(0);
++  _nativeModule->MinMicrophoneVolume(&minVolume);
++  return minVolume;
++}
++
++// Speaker mute control
++- (bool) speakerMuteIsAvailable {
++  bool available = false;
++  _nativeModule->SpeakerMuteIsAvailable(&available);
++  return available;
++}
++
++- (int32_t) setSpeakerMute:(BOOL)enable {
++  return _nativeModule->SetSpeakerMute(enable);
++}
++
++- (bool) speakerMute {
++  bool enable = false;
++  _nativeModule->SpeakerMute(&enable);
++  return enable;
++}
++
++// Microphone mute control
++- (bool) microphoneMuteIsAvailable {
++  bool available = false;
++  _nativeModule->MicrophoneMuteIsAvailable(&available);
++  return available;
++}
++
++- (int32_t) setMicrophoneMute:(bool)enable {
++  return _nativeModule->SetMicrophoneMute(enable);
++}
++
++- (bool) microphoneMute {
++  bool enable = false;
++  _nativeModule->MicrophoneMute(&enable);
++  return enable;
++}
++
++// Stereo support
++- (bool) stereoPlayoutIsAvailable {
++  bool available = false;
++  _nativeModule->StereoPlayoutIsAvailable(&available);
++  return available;
++}
++
++- (int32_t) setStereoPlayout:(bool)enable {
++  return _nativeModule->SetStereoPlayout(enable);
++}
++
++- (bool) stereoPlayout {
++  bool enable = false;
++  _nativeModule->StereoPlayout(&enable);
++  return enable;
++}
++
++- (bool) stereoRecordingIsAvailable {
++  bool available = false;
++  _nativeModule->StereoRecordingIsAvailable(&available);
++  return available;
++}
++
++- (int32_t) setStereoRecording:(bool)enable {
++  return _nativeModule->SetStereoRecording(enable);
++}
++
++- (bool) stereoRecording {
++  bool enable = false;
++  _nativeModule->StereoRecording(&enable);
++  return enable;
++}
++
++// Delay information and control
++- (bool) builtInAECIsAvailable {
++  return _nativeModule->BuiltInAECIsAvailable();
++}
++
++- (int32_t) enableBuiltInAEC:(bool)enable {
++  return _nativeModule->EnableBuiltInAEC(enable);
++}
++
++- (bool) builtInAGCIsAvailable {
++  return _nativeModule->BuiltInAGCIsAvailable();
++}
++
++- (int32_t) enableBuiltInAGC:(bool)enable {
++  return _nativeModule->EnableBuiltInAGC(enable);
++}
++
++- (bool) builtInNSIsAvailable {
++  return _nativeModule->BuiltInNSIsAvailable();
++}
++
++- (int32_t) enableBuiltInNS:(bool)enable {
++  return _nativeModule->EnableBuiltInNS(enable);
++}
++
 +#if defined(WEBRTC_IOS)
 +- (void)deliverRecordedData:(CMSampleBufferRef)sampleBuffer {
 +  _nativeModule->OnDeliverRecordedExternalData(sampleBuffer);
 +}
-+#endif
 +
-+#if defined(WEBRTC_IOS)
 +- (void)setAudioUnitSubType:(OSType)audioUnitSubType {
 +  _nativeModule->SetAudioUnitSubType(audioUnitSubType);
 +}
-+#endif
 +
-+#if defined(WEBRTC_IOS)
 +- (OSType)audioUnitSubType {
 +  return _nativeModule->GetAudioUnitSubType();
 +}
@@ -135,8 +460,7 @@ index 0000000000..7870edb713
 +- (rtc::scoped_refptr<webrtc::ios_adm::AudioDeviceModuleIOS>)nativeModule {
 +  return _nativeModule;
 +}
-+#endif
-+#if defined(WEBRTC_MAC)
++#elif defined(WEBRTC_MAC)
 +- (rtc::scoped_refptr<webrtc::mac_adm::AudioDeviceModuleMac>)nativeModule {
 +  return _nativeModule;
 +}
