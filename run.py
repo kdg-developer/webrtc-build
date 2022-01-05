@@ -189,7 +189,6 @@ PATCHES = {
         'macos_h265.patch',
         'macos_audio_source.patch',
         'macos_empty_frame.patch',
-        'macos_symbol_export.patch',
         'ssl_verify_callback_with_native_handle.patch',
     ],
     'macos_arm64': [
@@ -205,7 +204,6 @@ PATCHES = {
         'macos_h265.patch',
         'macos_audio_source.patch',
         'macos_empty_frame.patch',
-        'macos_symbol_export.patch',
         'ssl_verify_callback_with_native_handle.patch',
     ],
     'ios': [
@@ -220,7 +218,6 @@ PATCHES = {
         'h265.patch',
         'macos_h265.patch',
         'macos_audio_source.patch',
-        'macos_symbol_export.patch',
         'ssl_verify_callback_with_native_handle.patch',
         'ios_bitcode.patch',
         'ios_disable_iossim.patch',
