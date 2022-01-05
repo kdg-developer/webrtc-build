@@ -102,10 +102,10 @@ index 0000000000..09224225fd
 +@end
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
 new file mode 100644
-index 0000000000..f68cf72cb8
+index 0000000000..82cadc91d2
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
-@@ -0,0 +1,106 @@
+@@ -0,0 +1,107 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -124,6 +124,10 @@ index 0000000000..f68cf72cb8
 +RTC_OBJC_EXPORT
 +
 +@interface RTCAudioDeviceModule : NSObject
++
++#if defined(WEBRTC_IOS)
++@property(nonatomic, assign) OSType audioUnitSubType;
++#endif
 +
 +// Main initializaton and termination
 +- (int32_t) initModule;
@@ -204,10 +208,7 @@ index 0000000000..f68cf72cb8
 +- (bool) builtInNSIsAvailable;
 +- (int32_t) enableBuiltInNS:(bool)enable;
 +
-+#if defined(WEBRTC_IOS)
-+- (void)deliverRecordedData:(CMSampleBufferRef)sampleBuffer;
-+@property(nonatomic, assign) OSType audioUnitSubType;
-+#endif
++- (void) deliverRecordedData:(CMSampleBufferRef)sampleBuffer;
 +
 +@end
 +
@@ -215,10 +216,10 @@ index 0000000000..f68cf72cb8
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
 new file mode 100644
-index 0000000000..74e80a1e55
+index 0000000000..d74f26d486
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
-@@ -0,0 +1,350 @@
+@@ -0,0 +1,352 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -543,11 +544,13 @@ index 0000000000..74e80a1e55
 +  return _nativeModule->EnableBuiltInNS(enable);
 +}
 +
-+#if defined(WEBRTC_IOS)
 +- (void)deliverRecordedData:(CMSampleBufferRef)sampleBuffer {
++  #if defined(WEBRTC_IOS)
 +  _nativeModule->OnDeliverRecordedExternalData(sampleBuffer);
++  #endif
 +}
 +
++#if defined(WEBRTC_IOS)
 +- (void)setAudioUnitSubType:(OSType)audioUnitSubType {
 +  _nativeModule->SetAudioUnitSubType(audioUnitSubType);
 +}
