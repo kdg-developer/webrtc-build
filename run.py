@@ -301,6 +301,7 @@ def get_webrtc(source_dir, patch_dir, version, target,
     src_dir = os.path.join(webrtc_source_dir, 'src')
     if fetch:
         with cd(src_dir):
+            cmd(['git', 'fetch'])
             cmd(['git', 'checkout', '-f', version])
             cmd(['git', 'clean', '-df'])
             cmd(['gclient', 'sync', '-D', '--force', '--reset', '--with_branch_heads'])
@@ -413,7 +414,11 @@ WEBRTC_BUILD_TARGETS = {
 
 
 def get_build_targets(target):
-    return [':default', *WEBRTC_BUILD_TARGETS.get(target, [])]
+    ts = [':default']
+    if target not in ('windows', 'ios', 'macos_x86_64', 'macos_arm64'):
+        ts += ['buildtools/third_party/libc++']
+    ts += WEBRTC_BUILD_TARGETS.get(target, [])
+    return ts
 
 
 IOS_ARCHS = ['simulator:x64', 'device:arm64']
@@ -432,6 +437,23 @@ def gn_gen(webrtc_src_dir: str, webrtc_build_dir: str, gn_args: List[str], extra
         args = ['gn', 'gen', webrtc_build_dir, '--args=' + to_gn_args(gn_args, extra_gn_args)]
         logging.info(' '.join(args))
         return cmd(args)
+
+
+def get_webrtc_version_info(version_info: VersionInfo):
+    xs = version_info.webrtc_version.split('.')
+    ys = version_info.webrtc_build_version.split('.')
+    if len(xs) >= 3 and len(ys) >= 4:
+        branch = 'M' + version_info.webrtc_version.split('.')[0]
+        commit = version_info.webrtc_version.split('.')[2]
+        revision = version_info.webrtc_commit
+        maint = version_info.webrtc_build_version.split('.')[3]
+    else:
+        # HEAD ビルドだと正しくバージョンが取れないので、その場合は適当に空文字を入れておく
+        branch = ''
+        commit = ''
+        revision = ''
+        maint = ''
+    return [branch, commit, revision, maint]
 
 
 def build_webrtc_ios(
@@ -480,10 +502,11 @@ def build_webrtc_ios(
             '--extra-gn-args', to_gn_args(gn_args, extra_gn_args)
         ])
         info = {}
-        info['branch'] = 'M' + version_info.webrtc_version.split('.')[0]
-        info['commit'] = version_info.webrtc_version.split('.')[2]
-        info['revision'] = version_info.webrtc_commit
-        info['maint'] = version_info.webrtc_build_version.split('.')[3]
+        branch, commit, revision, maint = get_webrtc_version_info(version_info)
+        info['branch'] = branch
+        info['commit'] = commit
+        info['revision'] = revision
+        info['maint'] = maint
         with open(os.path.join(webrtc_build_dir, 'framework', 'WebRTC.xcframework', 'build_info.json'), 'w') as f:
             f.write(json.dumps(info, indent=4))
 
@@ -547,10 +570,7 @@ def build_webrtc_android(
     mkdir_p(webrtc_build_dir)
 
     # Java ファイル作成
-    branch = 'M' + version_info.webrtc_version.split('.')[0]
-    commit = version_info.webrtc_version.split('.')[2]
-    revision = version_info.webrtc_commit
-    maint = version_info.webrtc_build_version.split('.')[3]
+    branch, commit, revision, maint = get_webrtc_version_info(version_info)
     name = 'WebrtcBuildVersion'
     lines = []
     lines.append('package org.webrtc;')
@@ -686,11 +706,12 @@ def build_webrtc(
 
     # macOS の場合は WebRTC.framework に追加情報を入れる
     if (target in ('macos_x86_64', 'macos_arm64')) and not nobuild_macos_framework:
+        branch, commit, revision, maint = get_webrtc_version_info(version_info)
         info = {}
-        info['branch'] = 'M' + version_info.webrtc_version.split('.')[0]
-        info['commit'] = version_info.webrtc_version.split('.')[2]
-        info['revision'] = version_info.webrtc_commit
-        info['maint'] = version_info.webrtc_build_version.split('.')[3]
+        info['branch'] = branch
+        info['commit'] = commit
+        info['revision'] = revision
+        info['maint'] = maint
         with open(os.path.join(webrtc_build_dir, 'WebRTC.framework', 'Resources', 'build_info.json'), 'w') as f:
             f.write(json.dumps(info, indent=4))
 
@@ -971,17 +992,8 @@ def main():
 
     configuration = 'debug' if args.debug else 'release'
 
-    if args.target == 'windows':
-        # $SOURCE_DIR の下に置きたいが、webrtc のパスが長すぎると動かない問題と、
-        # GitHub Actions の D:\ の容量が少なくてビルド出来ない問題があるので
-        # このパスにソースを配置する
-        source_dir = 'C:\\webrtc'
-        # また、WebRTC のビルドしたファイルは同じドライブに無いといけないっぽいので、
-        # BUILD_DIR とは別で用意する
-        build_dir = os.path.join('C:\\webrtc-build', configuration)
-    else:
-        source_dir = os.path.join(BASE_DIR, '_source', args.target)
-        build_dir = os.path.join(BASE_DIR, '_build', args.target, configuration)
+    source_dir = os.path.join(BASE_DIR, '_source', args.target)
+    build_dir = os.path.join(BASE_DIR, '_build', args.target, configuration)
     package_dir = os.path.join(BASE_DIR, '_package', args.target)
     patch_dir = os.path.join(BASE_DIR, 'patches')
 
@@ -1034,6 +1046,8 @@ def main():
 
             dir = get_depot_tools(source_dir, fetch=args.depottools_fetch)
             add_path(dir)
+            if args.target == 'windows':
+                cmd(['git', 'config', '--system', 'core.longpaths', 'true'])
 
             # ソース取得
             get_webrtc(source_dir, patch_dir, version_info.webrtc_commit, args.target,
