@@ -21,18 +21,18 @@ index 107110987b..6029554c8f 100644
 +          TaskQueueFactory::Priority::HIGH)) {
    TRACE_EVENT0("webrtc", "VideoStreamEncoder::VideoStreamEncoder");
 diff --git a/modules/pacing/task_queue_paced_sender.cc b/modules/pacing/task_queue_paced_sender.cc
-index 709718ff16..d8f9b4c17c 100644
+index f2de9ecb64..6ee946bfb5 100644
 --- a/modules/pacing/task_queue_paced_sender.cc
 +++ b/modules/pacing/task_queue_paced_sender.cc
-@@ -50,7 +50,7 @@ TaskQueuePacedSender::TaskQueuePacedSender(
-       is_shutdown_(false),
+@@ -53,7 +53,7 @@ TaskQueuePacedSender::TaskQueuePacedSender(
+       packet_size_(/*alpha=*/0.95),
        task_queue_(task_queue_factory->CreateTaskQueue(
            "TaskQueuePacedSender",
--          TaskQueueFactory::Priority::NORMAL)) {}
-+          TaskQueueFactory::Priority::HIGH)) {}
+-          TaskQueueFactory::Priority::NORMAL)) {
++          TaskQueueFactory::Priority::HIGH)) {
+   packet_size_.Apply(1, 0);
+ }
 
- TaskQueuePacedSender::~TaskQueuePacedSender() {
-   // Post an immediate task to mark the queue as shutting down.
 diff --git a/sdk/objc/helpers/RTCDispatcher.m b/sdk/objc/helpers/RTCDispatcher.m
 index 4df19bc297..408c1e0258 100644
 --- a/sdk/objc/helpers/RTCDispatcher.m
