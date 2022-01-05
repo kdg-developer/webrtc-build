@@ -9,10 +9,10 @@ index 1072057e3f..5e71e60954 100644
      poisonous = [ "default_task_queue" ]
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h b/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h
 new file mode 100644
-index 0000000000..bd5f40fec7
+index 0000000000..a01500b190
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule+Private.h
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,28 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -24,8 +24,7 @@ index 0000000000..bd5f40fec7
 +
 +#if defined(WEBRTC_IOS)
 +#include "sdk/objc/native/src/audio/audio_device_module_ios.h"
-+#endif
-+#if defined(WEBRTC_MAC)
++#elif defined(WEBRTC_MAC)
 +#include "sdk/objc/native/src/audio/audio_device_module_mac.h"
 +#endif
 +
