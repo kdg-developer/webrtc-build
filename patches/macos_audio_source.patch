@@ -43,10 +43,10 @@ index 0000000000..a01500b190
 +NS_ASSUME_NONNULL_END
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDevice.h b/sdk/objc/api/peerconnection/RTCAudioDevice.h
 new file mode 100644
-index 0000000000..5e5eb833f2
+index 0000000000..c4bb2fd292
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDevice.h
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,26 @@
 +#import <Foundation/Foundation.h>
 +
 +#import "RTCMacros.h"
@@ -54,8 +54,7 @@ index 0000000000..5e5eb833f2
 +NS_ASSUME_NONNULL_BEGIN
 +
 +RTC_OBJC_EXPORT
-+
-+@interface RTCAudioDevice : NSObject {
++@interface RTC_OBJC_TYPE(RTCAudioDevice) : NSObject {
 +  NSString *deviceName;
 +  NSString *uniqueId;
 +  int index;
@@ -76,13 +75,13 @@ index 0000000000..5e5eb833f2
 +NS_ASSUME_NONNULL_END
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDevice.mm b/sdk/objc/api/peerconnection/RTCAudioDevice.mm
 new file mode 100644
-index 0000000000..09224225fd
+index 0000000000..c655420746
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDevice.mm
 @@ -0,0 +1,20 @@
 +#import "RTCAudioDevice.h"
 +
-+@implementation RTCAudioDevice : NSObject
++@implementation RTC_OBJC_TYPE(RTCAudioDevice) : NSObject
 +
 +@synthesize deviceName = _deviceName;
 +@synthesize uniqueId = _uniqueId;
@@ -102,10 +101,10 @@ index 0000000000..09224225fd
 +@end
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
 new file mode 100644
-index 0000000000..82cadc91d2
+index 0000000000..d1db2f1faa
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.h
-@@ -0,0 +1,107 @@
+@@ -0,0 +1,104 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -122,12 +121,9 @@ index 0000000000..82cadc91d2
 +NS_ASSUME_NONNULL_BEGIN
 +
 +RTC_OBJC_EXPORT
++@interface RTC_OBJC_TYPE (RTCAudioDeviceModule) : NSObject
 +
-+@interface RTCAudioDeviceModule : NSObject
-+
-+#if defined(WEBRTC_IOS)
 +@property(nonatomic, assign) OSType audioUnitSubType;
-+#endif
 +
 +// Main initializaton and termination
 +- (int32_t) initModule;
@@ -216,10 +212,10 @@ index 0000000000..82cadc91d2
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
 new file mode 100644
-index 0000000000..d74f26d486
+index 0000000000..663aaef6aa
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/RTCAudioDeviceModule.mm
-@@ -0,0 +1,352 @@
+@@ -0,0 +1,356 @@
 +/*
 + *  Copyright 2019 pixiv Inc. All Rights Reserved.
 + *
@@ -234,7 +230,7 @@ index 0000000000..d74f26d486
 +#include "modules/audio_device/audio_device_generic.h"
 +#include "rtc_base/ref_counted_object.h"
 +
-+@implementation RTCAudioDeviceModule {
++@implementation RTC_OBJC_TYPE(RTCAudioDeviceModule) {
 +  #if defined(WEBRTC_IOS)
 +  rtc::scoped_refptr<webrtc::ios_adm::AudioDeviceModuleIOS> _nativeModule;
 +  #elif defined(WEBRTC_MAC)
@@ -550,15 +546,19 @@ index 0000000000..d74f26d486
 +  #endif
 +}
 +
-+#if defined(WEBRTC_IOS)
 +- (void)setAudioUnitSubType:(OSType)audioUnitSubType {
++  #if defined(WEBRTC_IOS)
 +  _nativeModule->SetAudioUnitSubType(audioUnitSubType);
++  #endif
 +}
 +
 +- (OSType)audioUnitSubType {
++  #if defined(WEBRTC_IOS)
 +  return _nativeModule->GetAudioUnitSubType();
++  #else
++  return kAudioUnitSubType_VoiceProcessingIO;
++  #endif
 +}
-+#endif
 +
 +#pragma mark - Private
 +
