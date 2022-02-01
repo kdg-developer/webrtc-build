@@ -1109,6 +1109,72 @@ index 859442dc9e..e5c9a7ea3e 100644
 +  }
 +
    int AudioDeviceModuleIOS::GetPlayoutAudioParameters(
+diff --git a/modules/audio_device/mac/audio_device_mac.h b/modules/audio_device/mac/audio_device_mac.h
+index f9504b64b5..2aedb2e59b 100644
+--- a/modules/audio_device/mac/audio_device_mac.h
++++ b/modules/audio_device/mac/audio_device_mac.h
+@@ -176,6 +176,11 @@ class AudioDeviceMac : public AudioDeviceGeneric {
+                            AudioDeviceID scopedDeviceIds[],
+                            const uint32_t deviceListLength);
+
++  int32_t GetDeviceId(const AudioObjectPropertyScope scope,
++                        const uint16_t index,
++                        char* uid);
++
++
+   int32_t GetDeviceName(const AudioObjectPropertyScope scope,
+                         const uint16_t index,
+                         char* name);
+
+diff --git a/modules/audio_device/mac/audio_device_mac.cc b/modules/audio_device/mac/audio_device_mac.cc
+index e0d4419c81..b2c65c2c8c 100644
+--- a/modules/audio_device/mac/audio_device_mac.cc
++++ b/modules/audio_device/mac/audio_device_mac.cc
+@@ -852,6 +852,7 @@ int32_t AudioDeviceMac::PlayoutDeviceName(uint16_t index,
+
+   if (guid != NULL) {
+     memset(guid, 0, kAdmMaxGuidSize);
++    GetDeviceId(kAudioDevicePropertyScopeOutput, index, guid);
+   }
+
+   return GetDeviceName(kAudioDevicePropertyScopeOutput, index, name);
+@@ -870,6 +871,7 @@ int32_t AudioDeviceMac::RecordingDeviceName(uint16_t index,
+
+   if (guid != NULL) {
+     memset(guid, 0, kAdmMaxGuidSize);
++    GetDeviceId(kAudioDevicePropertyScopeInput, index, guid);
+   }
+ 
+   return GetDeviceName(kAudioDevicePropertyScopeInput, index, name);
+@@ -1663,6 +1665,28 @@ int32_t AudioDeviceMac::GetNumberDevices(const AudioObjectPropertyScope scope,
+   return numberScopedDevices;
+ }
+ 
++int32_t AudioDeviceMac::GetDeviceId(const AudioObjectPropertyScope scope,
++                                      const uint16_t index,
++                                      char* uid) {
++  AudioDeviceID deviceIds[MaxNumberDevices];
++
++  int numberDevices = GetNumberDevices(scope, deviceIds, MaxNumberDevices);
++  if (numberDevices < 0) {
++    return -1;
++  } else if (numberDevices == 0) {
++    RTC_LOG(LS_ERROR) << "No devices";
++    return -1;
++  }
++
++  if (numberDevices <= index) {
++    RTC_LOG(LS_ERROR) << "Devices index out of range";
++    return -1;
++  }
++
++  sprintf(uid, "%d", deviceIds[index]);
++  return 0;
++}
++
+ int32_t AudioDeviceMac::GetDeviceName(const AudioObjectPropertyScope scope,
+                                       const uint16_t index,
+                                       char* name) {
 diff --git a/sdk/objc/native/src/audio/audio_device_module_mac.h b/sdk/objc/native/src/audio/audio_device_module_mac.h
 new file mode 100644
 index 0000000000..cc51dcc85e
