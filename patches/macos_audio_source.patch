@@ -1054,7 +1054,7 @@ index dd95775204..148bdb958b 100644
 +#elif defined(WEBRTC_MAC)
 +  return new rtc::RefCountedObject<mac_adm::AudioDeviceModuleMac>(bypass_voice_processing);
  #else
-   RTC_LOG(LERROR)
+   RTC_LOG(LS_ERROR)
        << "current platform is not supported => this module will self destruct!";
 diff --git a/sdk/objc/native/src/audio/audio_device_module_ios.h b/sdk/objc/native/src/audio/audio_device_module_ios.h
 index 9bcf114e32..075f3ac664 100644
@@ -1384,8 +1384,8 @@ index 0000000000..1afecb9b26
 +
 +AudioDeviceModuleMac::AudioDeviceModuleMac(bool bypass_voice_processing)
 +    : task_queue_factory_(CreateDefaultTaskQueueFactory()) {
-+  RTC_LOG(INFO) << "current platform is macOS";
-+  RTC_LOG(INFO) << "macOS Audio APIs will be utilized.";
++  RTC_LOG(LS_INFO) << "current platform is macOS";
++  RTC_LOG(LS_INFO) << "macOS Audio APIs will be utilized.";
 +}
 +
 +  int32_t AudioDeviceModuleMac::AttachAudioBuffer() {
@@ -1634,7 +1634,7 @@ index 0000000000..1afecb9b26
 +    RTC_DLOG(INFO) << __FUNCTION__ << "(" << enable << ")";
 +    CHECKinitialized_();
 +    if (enable) {
-+      RTC_LOG(WARNING) << "recording in stereo is not supported";
++      RTC_LOG(LS_WARNING) << "recording in stereo is not supported";
 +    }
 +    return -1;
 +  }
@@ -1667,12 +1667,12 @@ index 0000000000..1afecb9b26
 +    RTC_DLOG(INFO) << __FUNCTION__ << "(" << enable << ")";
 +    CHECKinitialized_();
 +    if (audio_device_->PlayoutIsInitialized()) {
-+      RTC_LOG(LERROR)
++      RTC_LOG(LS_ERROR)
 +      << "unable to set stereo mode while playing side is initialized";
 +      return -1;
 +    }
 +    if (audio_device_->SetStereoPlayout(enable)) {
-+      RTC_LOG(WARNING) << "stereo playout is not supported";
++      RTC_LOG(LS_WARNING) << "stereo playout is not supported";
 +      return -1;
 +    }
 +    int8_t nChannels(1);
@@ -1931,7 +1931,7 @@ index 0000000000..1afecb9b26
 +    CHECKinitialized_();
 +    uint16_t delay = 0;
 +    if (audio_device_->PlayoutDelay(delay) == -1) {
-+      RTC_LOG(LERROR) << "failed to retrieve the playout delay";
++      RTC_LOG(LS_ERROR) << "failed to retrieve the playout delay";
 +      return -1;
 +    }
 +    *delayMS = delay;
