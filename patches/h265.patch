@@ -750,7 +750,7 @@ index 0000000000..1657a9b855
 +    } else if (slice_group_map_type == 3 || slice_group_map_type == 4 ||
 +               slice_group_map_type == 5) {
 +      // slice_group_change_direction_flag: u(1)
-+      reader.ReadBit();
++      reader.ConsumeBits(1);
 +      // slice_group_change_rate_minus1: ue(v)
 +      reader.ReadExponentialGolomb();
 +    } else if (slice_group_map_type == 6) {
@@ -770,7 +770,7 @@ index 0000000000..1657a9b855
 +      for (uint32_t i = 0; i <= pic_size_in_map_units_minus1 && reader.Ok(); i++) {
 +        // slice_group_id[i]: u(v)
 +        // Represented by ceil(log2(num_slice_groups_minus1 + 1)) bits.
-+        reader.ReadBits(slice_group_id_bits);
++        reader.ConsumeBits(slice_group_id_bits);
 +      }
 +    }
 +  }
@@ -796,7 +796,7 @@ index 0000000000..1657a9b855
 +  reader.ReadExponentialGolomb();
 +  // deblocking_filter_control_present_flag: u(1)
 +  // constrained_intra_pred_flag: u(1)
-+  reader.ReadBits(2);
++  reader.ConsumeBits(2);
 +  // redundant_pic_cnt_present_flag: u(1)
 +  pps.redundant_pic_cnt_present_flag = reader.ReadBit();
 +  if (!reader.Ok()) {
