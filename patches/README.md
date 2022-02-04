@@ -20,18 +20,10 @@
 
 ## ios_bitcode.patch
 
-M95からiOSビルド時に `-gdwarf-aranges` ビルドオプションが追加された。
-この `-gdwarf-aranges` はiOSでbitcodeを生成するためのビルドオプション `-fembed-bitcode` と両立できない。
-M94以前を用いたSora iOS SDKではbitcode出力設定をONにした状態でのビルドを行えるため、従来の設定を踏襲するためにパッチを当てている。
+先の `-gdwarf-aranges` フラグ周りの問題は既に本家に取り込まれたため削除した。
 
-問題の原因となる本家の変更: https://chromium-review.googlesource.com/c/chromium/src/+/3092732
-本家に対してパッチ送信済み: https://chromium-review.googlesource.com/c/chromium/src/+/3223221
-
-以下のいずれかの条件下にて本パッチは削除できます
-
-1. パッチが本家に取り込まれる
-2. 1.以外の方法で `-gdwarf-aranges` と `-fembed-bitcode` が両立できるように本家で対応される
-3. SDK提供時にbitcode出力が不要と判断される
+現在は xcode の clang でなくても bitcode に対応したため xcode の clang 対応が落とされたが、その変更に伴う bitcode がらみのビルドエラーが生じているために、これを回避するパッチ。
+関連する問題として xcode 13.0 縛りが[入っている](https://source.chromium.org/chromium/chromium/src/+/main:build/config/ios/BUILD.gn;l=130)ために build.yml でも xcode 13.0 指定をおこなっている。様子を見て解除すること。
 
 ## ios_manual_audio_input.patch
 
@@ -57,8 +49,9 @@ M94以前を用いたSora iOS SDKではbitcode出力設定をONにした状態�
 ## ubuntu_nolibcxx.patch
 
 
-## windows_add_deps.patch
+## windows_build_gn.patch
 
+C++17 で deprecated されているコードを多数含むために _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS を追加している。
 
 ## ssl_verify_callback_with_native_handle.patch
 
