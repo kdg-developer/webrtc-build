@@ -7,15 +7,6 @@ index d743a0bf43..2b6a3209bd 100644
 -          TaskQueueFactory::Priority::NORMAL)) {
 +          TaskQueueFactory::Priority::HIGH)) {
    ParseFieldTrial({&relay_bandwidth_cap_},
-diff --git a/video/video_stream_encoder.cc b/video/video_stream_encoder.cc
-index 191918a591..39991e0d59 100644
---- a/video/video_stream_encoder.cc
-+++ b/video/video_stream_encoder.cc
-@@ -661,3 +661,3 @@ VideoStreamEncoder::VideoStreamEncoder(
-           "EncoderQueue",
--          TaskQueueFactory::Priority::NORMAL)) {
-+          TaskQueueFactory::Priority::HIGH)) {
-   RTC_DCHECK(main_queue_);
 diff --git a/modules/pacing/task_queue_paced_sender.cc b/modules/pacing/task_queue_paced_sender.cc
 index f2de9ecb64..6ee946bfb5 100644
 --- a/modules/pacing/task_queue_paced_sender.cc
