@@ -11,15 +11,6 @@ index d743a0bf43..2b6a3209bd 100644
    ParseFieldTrial({&relay_bandwidth_cap_},
                    trials->Lookup("WebRTC-Bwe-NetworkRouteConstraints"));
    initial_config_.constraints = ConvertConstraints(bitrate_config, clock_);
-diff --git a/video/video_stream_encoder.cc b/video/video_stream_encoder.cc
-index 107110987b..6029554c8f 100644
---- a/video/video_stream_encoder.cc
-+++ b/video/video_stream_encoder.cc
-@@ -661,3 +661,3 @@ VideoStreamEncoder::VideoStreamEncoder(
-           "EncoderQueue",
--          TaskQueueFactory::Priority::NORMAL)) {
-+          TaskQueueFactory::Priority::HIGH)) {
-   TRACE_EVENT0("webrtc", "VideoStreamEncoder::VideoStreamEncoder");
 diff --git a/modules/pacing/task_queue_paced_sender.cc b/modules/pacing/task_queue_paced_sender.cc
 index f2de9ecb64..6ee946bfb5 100644
 --- a/modules/pacing/task_queue_paced_sender.cc
