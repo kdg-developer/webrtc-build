@@ -1032,7 +1032,7 @@ index f51714ce1d..5d799d7da4 100644
 +    }
      if (!ConfigureAudioSessionLocked()) {
 diff --git a/sdk/objc/native/api/audio_device_module.mm b/sdk/objc/native/api/audio_device_module.mm
-index dd95775204..148bdb958b 100644
+index 55ea7e3f34..fdb81e410b 100644
 --- a/sdk/objc/native/api/audio_device_module.mm
 +++ b/sdk/objc/native/api/audio_device_module.mm
 @@ -13,7 +13,11 @@
@@ -1048,14 +1048,14 @@ index dd95775204..148bdb958b 100644
  namespace webrtc {
  
 @@ -21,6 +25,8 @@
-   RTC_DLOG(INFO) << __FUNCTION__;
+   RTC_DLOG(LS_INFO) << __FUNCTION__;
  #if defined(WEBRTC_IOS)
-   return new rtc::RefCountedObject<ios_adm::AudioDeviceModuleIOS>(bypass_voice_processing);
+   return rtc::make_ref_counted<ios_adm::AudioDeviceModuleIOS>(bypass_voice_processing);
 +#elif defined(WEBRTC_MAC)
-+  return new rtc::RefCountedObject<mac_adm::AudioDeviceModuleMac>(bypass_voice_processing);
++  return rtc::make_ref_counted<mac_adm::AudioDeviceModuleMac>(bypass_voice_processing);
  #else
-   RTC_LOG(LS_ERROR)
-       << "current platform is not supported => this module will self destruct!";
+   RTC_LOG(LS_ERROR) << "current platform is not supported => this module will self destruct!";
+   return nullptr;
 diff --git a/sdk/objc/native/src/audio/audio_device_module_ios.h b/sdk/objc/native/src/audio/audio_device_module_ios.h
 index 9bcf114e32..075f3ac664 100644
 --- a/sdk/objc/native/src/audio/audio_device_module_ios.h

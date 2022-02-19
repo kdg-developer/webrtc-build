@@ -36,15 +36,6 @@ index 4df19bc297..408c1e0258 100644
 -        dispatch_queue_create("org.webrtc.RTCDispatcherNetworkMonitor", DISPATCH_QUEUE_SERIAL);
 +        dispatch_queue_create("org.webrtc.RTCDispatcherNetworkMonitor", DISPATCH_QUEUE_CONCURRENT);
    });
-diff --git a/video/video_receive_stream.cc b/video/video_receive_stream.cc
-index dbdba388aa..78556f4846 100644
---- a/video/video_receive_stream.cc
-+++ b/video/video_receive_stream.cc
-@@ -225,3 +225,3 @@ VideoReceiveStream::VideoReceiveStream(
-           "DecodingQueue",
--          TaskQueueFactory::Priority::HIGH)) {
-+          TaskQueueFactory::Priority::LOW)) {
-   RTC_LOG(LS_INFO) << "VideoReceiveStream: " << config_.ToString();
 diff --git a/video/video_receive_stream2.cc b/video/video_receive_stream2.cc
 index c9ec9e0123..58cb834e6c 100644
 --- a/video/video_receive_stream2.cc
