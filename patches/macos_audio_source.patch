@@ -1110,20 +1110,19 @@ index 859442dc9e..e5c9a7ea3e 100644
 +
    int AudioDeviceModuleIOS::GetPlayoutAudioParameters(
 diff --git a/modules/audio_device/mac/audio_device_mac.h b/modules/audio_device/mac/audio_device_mac.h
-index f9504b64b5..2aedb2e59b 100644
+index fe0d3beed8..0bcee732f3 100644
 --- a/modules/audio_device/mac/audio_device_mac.h
 +++ b/modules/audio_device/mac/audio_device_mac.h
-@@ -176,6 +176,11 @@ class AudioDeviceMac : public AudioDeviceGeneric {
+@@ -177,6 +177,10 @@ class AudioDeviceMac : public AudioDeviceGeneric {
                             AudioDeviceID scopedDeviceIds[],
-                            const uint32_t deviceListLength);
+                            uint32_t deviceListLength);
 
 +  int32_t GetDeviceId(const AudioObjectPropertyScope scope,
-+                        const uint16_t index,
-+                        char* uid);
++                      const uint16_t index,
++                      char* uid);
 +
-+
-   int32_t GetDeviceName(const AudioObjectPropertyScope scope,
-                         const uint16_t index,
+   int32_t GetDeviceName(AudioObjectPropertyScope scope,
+                         uint16_t index,
                          char* name);
 
 diff --git a/modules/audio_device/mac/audio_device_mac.cc b/modules/audio_device/mac/audio_device_mac.cc
