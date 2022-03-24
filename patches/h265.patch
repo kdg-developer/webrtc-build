@@ -1628,7 +1628,7 @@ new file mode 100644
 index 0000000000..e5f77a379b
 --- /dev/null
 +++ b/modules/rtp_rtcp/source/rtp_format_h265.h
-@@ -0,0 +1,110 @@
+@@ -0,0 +1,111 @@
 +/*
 + *  Intel License
 + * See https://01.org/open-webrtc-toolkit
@@ -1648,7 +1648,6 @@ index 0000000000..e5f77a379b
 +#include "modules/rtp_rtcp/source/video_rtp_depacketizer.h"
 +#include "modules/video_coding/codecs/h265/include/h265_globals.h"
 +#include "rtc_base/buffer.h"
-+#include "rtc_base/constructor_magic.h"
 +
 +namespace webrtc {
 +
@@ -1660,7 +1659,10 @@ index 0000000000..e5f77a379b
 +                    PayloadSizeLimits limits,
 +                    H265PacketizationMode packetization_mode);
 +
-+   ~RtpPacketizerH265() override;
++  ~RtpPacketizerH265() override;
++
++  RtpPacketizerH265(const RtpPacketizerH265&) = delete;
++  RtpPacketizerH265& operator=(const RtpPacketizerH265&) = delete;
 +
 +  size_t NumPackets() const override;
 +
@@ -1735,7 +1737,6 @@ index 0000000000..e5f77a379b
 +  const PayloadSizeLimits limits_;
 +  size_t num_packets_left_;
 +
-+  RTC_DISALLOW_COPY_AND_ASSIGN(RtpPacketizerH265);
 +};
 +}  // namespace webrtc
 +#endif  // WEBRTC_MODULES_RTP_RTCP_SOURCE_RTP_FORMAT_H265_H_
