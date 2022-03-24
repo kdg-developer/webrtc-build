@@ -2016,17 +2016,25 @@ index 0000000000..1afecb9b26
 +}
 +}
 diff --git a/tools_webrtc/libs/generate_licenses.py b/tools_webrtc/libs/generate_licenses.py
-index a23123e760..36aae5964d 100755
+index 1c2db06313..eba27a342e 100755
 --- a/tools_webrtc/libs/generate_licenses.py
 +++ b/tools_webrtc/libs/generate_licenses.py
-@@ -77,2 +77,3 @@ LIB_TO_LICENSES_DICT = {
+@@ -76,6 +76,7 @@ LIB_TO_LICENSES_DICT = {
+     'g722': ['modules/third_party/g722/LICENSE'],
+     'ooura': ['common_audio/third_party/ooura/LICENSE'],
      'spl_sqrt_floor': ['common_audio/third_party/spl_sqrt_floor/LICENSE'],
-+    'webrtc (additions made by pixiv Inc.)': ['LICENSE.pixiv'],
++    'webrtc_pixiv': ['LICENSE.pixiv'],
  
-@@ -217,2 +218,3 @@ class LicenseBuilder(object):
-         license_libs = sorted(third_party_libs)
-+        license_libs.insert(0, 'webrtc (additions made by pixiv Inc.)')
-         license_libs.insert(0, 'webrtc')
+     # TODO(bugs.webrtc.org/1110): Remove this hack. This is not a lib.
+     # For some reason it is listed as so in _GetThirdPartyLibraries.
+@@ -214,6 +217,7 @@ class LicenseBuilder:
+
+     # Put webrtc at the front of the list.
+     license_libs = sorted(third_party_libs)
++    license_libs.insert(0, 'webrtc_pixiv')
+     license_libs.insert(0, 'webrtc')
+
+     logging.info('List of licenses: %s', ', '.join(license_libs))
 diff --git a/LICENSE.pixiv b/LICENSE.pixiv
 new file mode 100644
 index 0000000000..cb034c1e54
