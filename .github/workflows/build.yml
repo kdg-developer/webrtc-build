@@ -42,7 +42,7 @@ jobs:
   #     with:
   #       name: webrtc.${{ matrix.name }}.zip
   #       path: _package\${{ matrix.name }}\webrtc.zip
-  # build-macos:
+  build-macos:
     strategy:
       fail-fast: false
       matrix:
