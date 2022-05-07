@@ -684,7 +684,6 @@ def build_webrtc(
                 'rtc_libvpx_build_vp9=true',
                 'rtc_enable_symbol_export=true',
                 'rtc_enable_objc_symbol_export=true',
-                'libcxx_abi_unstable=false',
                 'rtc_enable_protobuf=false'
             ]
         elif target in ('raspberry-pi-os_armv6',
