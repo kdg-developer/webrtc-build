@@ -1,0 +1,102 @@
+diff --git a/rtc_base/thread.cc b/rtc_base/thread.cc
+index 307d499255..e9f6704a4a 100644
+--- a/rtc_base/thread.cc
++++ b/rtc_base/thread.cc
+@@ -41,32 +41,32 @@
+ #include "rtc_base/time_utils.h"
+ #include "rtc_base/trace_event.h"
+ 
+-#if defined(WEBRTC_MAC)
+-#include "rtc_base/system/cocoa_threading.h"
+-
+-/*
+- * These are forward-declarations for methods that are part of the
+- * ObjC runtime. They are declared in the private header objc-internal.h.
+- * These calls are what clang inserts when using @autoreleasepool in ObjC,
+- * but here they are used directly in order to keep this file C++.
+- * https://clang.llvm.org/docs/AutomaticReferenceCounting.html#runtime-support
+- */
+-extern "C" {
+-void* objc_autoreleasePoolPush(void);
+-void objc_autoreleasePoolPop(void* pool);
+-}
+-
+-namespace {
+-class ScopedAutoReleasePool {
+- public:
+-  ScopedAutoReleasePool() : pool_(objc_autoreleasePoolPush()) {}
+-  ~ScopedAutoReleasePool() { objc_autoreleasePoolPop(pool_); }
+-
+- private:
+-  void* const pool_;
+-};
+-}  // namespace
+-#endif
++// #if defined(WEBRTC_MAC)
++// #include "rtc_base/system/cocoa_threading.h"
++
++// /*
++//  * These are forward-declarations for methods that are part of the
++//  * ObjC runtime. They are declared in the private header objc-internal.h.
++//  * These calls are what clang inserts when using @autoreleasepool in ObjC,
++//  * but here they are used directly in order to keep this file C++.
++//  * https://clang.llvm.org/docs/AutomaticReferenceCounting.html#runtime-support
++//  */
++// extern "C" {
++// void* objc_autoreleasePoolPush(void);
++// void objc_autoreleasePoolPop(void* pool);
++// }
++
++// namespace {
++// class ScopedAutoReleasePool {
++//  public:
++//   ScopedAutoReleasePool() : pool_(objc_autoreleasePoolPush()) {}
++//   ~ScopedAutoReleasePool() { objc_autoreleasePoolPop(pool_); }
++
++//  private:
++//   void* const pool_;
++// };
++// }  // namespace
++// #endif
+ 
+ namespace rtc {
+ namespace {
+@@ -260,9 +260,9 @@ Thread* Thread::Current() {
+ 
+ #if defined(WEBRTC_POSIX)
+ ThreadManager::ThreadManager() {
+-#if defined(WEBRTC_MAC)
+-  InitCocoaMultiThreading();
+-#endif
++// #if defined(WEBRTC_MAC)
++//   InitCocoaMultiThreading();
++// #endif
+   pthread_key_create(&key_, nullptr);
+ }
+ 
+@@ -873,9 +873,9 @@ void* Thread::PreRun(void* pv) {
+   Thread* thread = static_cast<Thread*>(pv);
+   ThreadManager::Instance()->SetCurrentThread(thread);
+   rtc::SetCurrentThreadName(thread->name_.c_str());
+-#if defined(WEBRTC_MAC)
+-  ScopedAutoReleasePool pool;
+-#endif
++// #if defined(WEBRTC_MAC)
++//   ScopedAutoReleasePool pool;
++// #endif
+   thread->Run();
+ 
+   ThreadManager::Instance()->SetCurrentThread(nullptr);
+@@ -1135,9 +1135,9 @@ bool Thread::ProcessMessages(int cmsLoop) {
+   int cmsNext = cmsLoop;
+ 
+   while (true) {
+-#if defined(WEBRTC_MAC)
+-    ScopedAutoReleasePool pool;
+-#endif
++// #if defined(WEBRTC_MAC)
++//     ScopedAutoReleasePool pool;
++// #endif
+     Message msg;
+     if (!Get(&msg, cmsNext))
+       return !IsQuitting();
