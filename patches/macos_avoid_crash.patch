@@ -1,5 +1,5 @@
 diff --git a/rtc_base/thread.cc b/rtc_base/thread.cc
-index 307d499255..e9f6704a4a 100644
+index 307d499255..7a8dd0e354 100644
 --- a/rtc_base/thread.cc
 +++ b/rtc_base/thread.cc
 @@ -41,32 +41,32 @@
@@ -74,20 +74,24 @@ index 307d499255..e9f6704a4a 100644
    pthread_key_create(&key_, nullptr);
  }
  
-@@ -873,9 +873,9 @@ void* Thread::PreRun(void* pv) {
+@@ -873,10 +873,12 @@ void* Thread::PreRun(void* pv) {
    Thread* thread = static_cast<Thread*>(pv);
    ThreadManager::Instance()->SetCurrentThread(thread);
    rtc::SetCurrentThreadName(thread->name_.c_str());
 -#if defined(WEBRTC_MAC)
 -  ScopedAutoReleasePool pool;
 -#endif
+-  thread->Run();
 +// #if defined(WEBRTC_MAC)
 +//   ScopedAutoReleasePool pool;
 +// #endif
-   thread->Run();
++  if (thread != NULL) {
++    thread->Run();
++  }
  
    ThreadManager::Instance()->SetCurrentThread(nullptr);
-@@ -1135,9 +1135,9 @@ bool Thread::ProcessMessages(int cmsLoop) {
+ #ifdef WEBRTC_WIN
+@@ -1135,9 +1137,9 @@ bool Thread::ProcessMessages(int cmsLoop) {
    int cmsNext = cmsLoop;
  
    while (true) {
