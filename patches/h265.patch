@@ -136,32 +136,6 @@ index 17a8a83bd0..561d79b5e6 100644
 
  const size_t kConferenceMaxNumSpatialLayers = 3;
 
-diff --git a/modules/audio_device/BUILD.gn b/modules/audio_device/BUILD.gn
-index 5d6a1d82fc..5b440ecf1e 100644
---- a/modules/audio_device/BUILD.gn
-+++ b/modules/audio_device/BUILD.gn
-@@ -294,6 +294,7 @@ rtc_library("audio_device_impl") {
-         ]
-       }
-       if (is_mac) {
-+        cflags += [ "-Wno-deprecated-declarations" ]
-         sources += [
-           "mac/audio_device_mac.cc",
-           "mac/audio_device_mac.h",
-
-diff --git a/modules/desktop_capture/BUILD.gn b/modules/desktop_capture/BUILD.gn
-index 25b92bed45..9fc003e64d 100644
---- a/modules/desktop_capture/BUILD.gn
-+++ b/modules/desktop_capture/BUILD.gn
-@@ -282,6 +282,7 @@ rtc_source_set("desktop_capture") {
- if (is_mac) {
-   rtc_library("desktop_capture_objc") {
-     visibility = [ ":desktop_capture" ]
-+    cflags = [ "-Wno-deprecated-declarations" ]
-     sources = [
-       "mac/desktop_configuration.mm",
-       "mac/desktop_frame_cgimage.h",
-
 diff --git a/modules/rtp_rtcp/BUILD.gn b/modules/rtp_rtcp/BUILD.gn
 index 00431dc097..cd9246571a 100644
 --- a/modules/rtp_rtcp/BUILD.gn
@@ -256,19 +230,6 @@ index c1be76fa4c..52c8738b31 100644
                                           RTPVideoHeaderLegacyGeneric>;
 
  struct RTPVideoHeader {
-
-diff --git a/modules/third_party/portaudio/BUILD.gn b/modules/third_party/portaudio/BUILD.gn
-index c49c544e9d..a43f8a9e6a 100644
---- a/modules/third_party/portaudio/BUILD.gn
-+++ b/modules/third_party/portaudio/BUILD.gn
-@@ -10,6 +10,7 @@ import("../../../webrtc.gni")
-
- rtc_library("mac_portaudio") {
-   visibility = [ "../../audio_device:*" ]
-+  cflags = [ "-Wno-deprecated-declarations" ]
-   sources = [
-     "pa_memorybarrier.h",
-     "pa_ringbuffer.c",
 
 diff --git a/modules/video_coding/BUILD.gn b/modules/video_coding/BUILD.gn
 index b28517e8be..df1632c263 100644

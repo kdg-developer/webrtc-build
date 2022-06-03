@@ -196,6 +196,7 @@ PATCHES = {
         'macos_audio_source.patch',
         'macos_avoid_crash.patch',
         'macos_empty_frame.patch',
+        'macos_ignore_deprecated_declarations.patch',
         'ssl_verify_callback_with_native_handle.patch',
     ],
     'macos_arm64': [
@@ -211,6 +212,7 @@ PATCHES = {
         'macos_audio_source.patch',
         'macos_avoid_crash.patch',
         'macos_empty_frame.patch',
+        'macos_ignore_deprecated_declarations.patch',
         'ssl_verify_callback_with_native_handle.patch',
     ],
     'ios': [
